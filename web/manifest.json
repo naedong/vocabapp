@@ -1,11 +1,11 @@
 {
-    "name": "vocab_app",
-    "short_name": "vocab_app",
+    "name": "Deutsch Flow",
+    "short_name": "DeutschFlow",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A Vocab Study App",
+    "background_color": "#F7F4EE",
+    "theme_color": "#15304B",
+    "description": "A German vocabulary study app powered by Flutter, Drift, and WASM.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
