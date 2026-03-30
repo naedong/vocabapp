@@ -226,3 +226,6 @@ fabric.properties
 # Local drift web build artifacts
 web/drift_worker.js.deps
 web/drift_worker.js.map
+
+# Local API secrets
+lib/src/core/config/news_api_secrets.dart

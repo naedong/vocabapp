@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 
+import '../audio/voice_locale.dart';
 import 'db_connection.dart';
 
 part 'app_database.g.dart';
@@ -15,6 +16,8 @@ class VocabWords extends Table {
   TextColumn get meaningEn => text()();
   TextColumn get meaningKo => text()();
   TextColumn get pronunciation => text()();
+  TextColumn get ttsLocale =>
+      text().withDefault(const Constant(defaultVoiceLocaleCode))();
   TextColumn get exampleSentence => text()();
   TextColumn get exampleTranslation => text()();
   TextColumn get deck => text().withDefault(const Constant('Starter'))();
@@ -36,15 +39,72 @@ class StudySessions extends Table {
   IntColumn get minutesSpent => integer().withDefault(const Constant(0))();
 }
 
-@DriftDatabase(tables: [VocabWords, StudySessions])
+class ReadingDocuments extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get sourceUrl => text()();
+  TextColumn get sourceTitle => text()();
+  TextColumn get sourceName => text().nullable()();
+  TextColumn get description => text().nullable()();
+  TextColumn get scriptText => text()();
+  IntColumn get publishedAt => integer().nullable()();
+  IntColumn get createdAt =>
+      integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
+  IntColumn get updatedAt => integer().nullable()();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {sourceUrl},
+  ];
+}
+
+class ReadingNotes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get documentId => integer().references(ReadingDocuments, #id)();
+  TextColumn get noteType => text()();
+  TextColumn get surfaceText => text()();
+  TextColumn get normalizedText => text().nullable()();
+  TextColumn get meaning => text().nullable()();
+  TextColumn get explanation => text().nullable()();
+  TextColumn get contextSnippet => text().nullable()();
+  IntColumn get createdAt =>
+      integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
+}
+
+@DriftDatabase(
+  tables: [VocabWords, StudySessions, ReadingDocuments, ReadingNotes],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(vocabWords, vocabWords.ttsLocale);
+      }
+      if (from < 3) {
+        await m.createTable(readingDocuments);
+        await m.createTable(readingNotes);
+      }
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+
+      if (details.versionNow >= 2) {
+        await customStatement(
+          "UPDATE vocab_words SET tts_locale = '$defaultVoiceLocaleCode' "
+          "WHERE tts_locale IS NULL OR tts_locale = ''",
+        );
+      }
+    },
+  );
 
   Future<void> initialize() async {
-    await customStatement('PRAGMA foreign_keys = ON');
+    await _ensureImmersionTables();
     await ensureSeedData();
   }
 
@@ -58,11 +118,26 @@ class AppDatabase extends _$AppDatabase {
     )..orderBy([(table) => OrderingTerm.desc(table.studiedAt)])).watch();
   }
 
+  Stream<List<ReadingNote>> watchReadingNotes(
+    int documentId, {
+    required String noteType,
+  }) {
+    return (select(readingNotes)
+          ..where(
+            (table) =>
+                table.documentId.equals(documentId) &
+                table.noteType.equals(noteType),
+          )
+          ..orderBy([(table) => OrderingTerm.desc(table.createdAt)]))
+        .watch();
+  }
+
   Future<void> addWord({
     required String german,
     required String meaningEn,
     required String meaningKo,
     required String pronunciation,
+    required String ttsLocale,
     String? article,
     required String partOfSpeech,
     required String exampleSentence,
@@ -81,6 +156,7 @@ class AppDatabase extends _$AppDatabase {
         meaningEn: meaningEn.trim(),
         meaningKo: meaningKo.trim(),
         pronunciation: pronunciation.trim(),
+        ttsLocale: Value(voiceLocaleFromCode(ttsLocale).code),
         exampleSentence: exampleSentence.trim().isEmpty
             ? '${german.trim()} ist ein wichtiges Wort.'
             : exampleSentence.trim(),
@@ -132,6 +208,160 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<ReadingDocument> upsertReadingDocument({
+    required String sourceUrl,
+    required String sourceTitle,
+    String? sourceName,
+    String? description,
+    String? scriptText,
+    DateTime? publishedAt,
+  }) async {
+    final existing = await (select(
+      readingDocuments,
+    )..where((table) => table.sourceUrl.equals(sourceUrl))).getSingleOrNull();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final initialScript = _initialReadingScript(
+      title: sourceTitle,
+      description: description,
+      scriptText: scriptText,
+    );
+
+    if (existing == null) {
+      final id = await into(readingDocuments).insert(
+        ReadingDocumentsCompanion.insert(
+          sourceUrl: sourceUrl,
+          sourceTitle: sourceTitle,
+          sourceName: Value(
+            sourceName?.trim().isEmpty ?? true ? null : sourceName,
+          ),
+          description: Value(
+            description?.trim().isEmpty ?? true ? null : description,
+          ),
+          scriptText: initialScript,
+          publishedAt: Value(publishedAt?.millisecondsSinceEpoch),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+
+      return (select(
+        readingDocuments,
+      )..where((table) => table.id.equals(id))).getSingle();
+    }
+
+    final nextScript = existing.scriptText.trim().isEmpty
+        ? initialScript
+        : existing.scriptText;
+
+    await (update(
+      readingDocuments,
+    )..where((table) => table.id.equals(existing.id))).write(
+      ReadingDocumentsCompanion(
+        sourceTitle: Value(sourceTitle),
+        sourceName: Value(
+          sourceName?.trim().isEmpty ?? true ? null : sourceName,
+        ),
+        description: Value(
+          description?.trim().isEmpty ?? true ? null : description,
+        ),
+        scriptText: Value(nextScript),
+        publishedAt: Value(publishedAt?.millisecondsSinceEpoch),
+        updatedAt: Value(now),
+      ),
+    );
+
+    return (select(
+      readingDocuments,
+    )..where((table) => table.id.equals(existing.id))).getSingle();
+  }
+
+  Future<void> updateReadingScript(int documentId, String scriptText) {
+    return (update(
+      readingDocuments,
+    )..where((table) => table.id.equals(documentId))).write(
+      ReadingDocumentsCompanion(
+        scriptText: Value(scriptText.trim()),
+        updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+    );
+  }
+
+  Future<bool> toggleReadingNote({
+    required int documentId,
+    required String noteType,
+    required String surfaceText,
+    String? normalizedText,
+    String? meaning,
+    String? explanation,
+    String? contextSnippet,
+  }) async {
+    final surface = surfaceText.trim();
+    final normalized = normalizedText?.trim();
+
+    final existing =
+        await (select(readingNotes)..where(
+              (table) =>
+                  table.documentId.equals(documentId) &
+                  table.noteType.equals(noteType) &
+                  (normalized != null && normalized.isNotEmpty
+                      ? table.normalizedText.equals(normalized)
+                      : table.surfaceText.equals(surface)),
+            ))
+            .getSingleOrNull();
+
+    if (existing != null) {
+      await (delete(
+        readingNotes,
+      )..where((table) => table.id.equals(existing.id))).go();
+      return false;
+    }
+
+    await into(readingNotes).insert(
+      ReadingNotesCompanion.insert(
+        documentId: documentId,
+        noteType: noteType,
+        surfaceText: surface,
+        normalizedText: Value(
+          normalized == null || normalized.isEmpty ? null : normalized,
+        ),
+        meaning: Value(_nullableText(meaning)),
+        explanation: Value(_nullableText(explanation)),
+        contextSnippet: Value(_nullableText(contextSnippet)),
+      ),
+    );
+    return true;
+  }
+
+  Future<void> _ensureImmersionTables() async {
+    await customStatement('''
+CREATE TABLE IF NOT EXISTS reading_documents (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  source_url TEXT NOT NULL UNIQUE,
+  source_title TEXT NOT NULL,
+  source_name TEXT NULL,
+  description TEXT NULL,
+  script_text TEXT NOT NULL,
+  published_at INTEGER NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NULL
+)
+''');
+
+    await customStatement('''
+CREATE TABLE IF NOT EXISTS reading_notes (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES reading_documents(id),
+  note_type TEXT NOT NULL,
+  surface_text TEXT NOT NULL,
+  normalized_text TEXT NULL,
+  meaning TEXT NULL,
+  explanation TEXT NULL,
+  context_snippet TEXT NULL,
+  created_at INTEGER NOT NULL
+)
+''');
+  }
+
   Future<void> ensureSeedData() async {
     final hasData = await (select(vocabWords)..limit(1)).getSingleOrNull();
     if (hasData != null) {
@@ -153,6 +383,7 @@ class AppDatabase extends _$AppDatabase {
         meaningEn: seed.meaningEn,
         meaningKo: seed.meaningKo,
         pronunciation: seed.pronunciation,
+        ttsLocale: Value(seed.ttsLocale),
         exampleSentence: seed.exampleSentence,
         exampleTranslation: seed.exampleTranslation,
         deck: Value(seed.deck),
@@ -224,6 +455,29 @@ Value<String?> _optionalText(String? value) {
   return Value(trimmed);
 }
 
+String? _nullableText(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  return trimmed;
+}
+
+String _initialReadingScript({
+  required String title,
+  String? description,
+  String? scriptText,
+}) {
+  final parts = <String>[
+    title.trim(),
+    if (description != null && description.trim().isNotEmpty)
+      description.trim(),
+    if (scriptText != null && scriptText.trim().isNotEmpty) scriptText.trim(),
+  ];
+
+  return parts.join('\n\n');
+}
+
 final List<_SeedWord> _seedWords = [
   _SeedWord(
     german: 'Alltag',
@@ -250,6 +504,7 @@ final List<_SeedWord> _seedWords = [
     meaningEn: 'apartment',
     meaningKo: '아파트, 집',
     pronunciation: '보눙',
+    ttsLocale: 'de-AT',
     exampleSentence: 'Die Wohnung liegt direkt am Park.',
     exampleTranslation: '그 아파트는 공원 바로 옆에 있다.',
     deck: 'Starter',
@@ -337,6 +592,7 @@ final List<_SeedWord> _seedWords = [
     meaningEn: 'train station',
     meaningKo: '기차역',
     pronunciation: '반호프',
+    ttsLocale: 'de-CH',
     exampleSentence: 'Der Bahnhof ist nur zehn Minuten entfernt.',
     exampleTranslation: '기차역은 불과 10분 거리에 있다.',
     deck: 'Travel',
@@ -446,6 +702,7 @@ class _SeedWord {
     required this.meaningEn,
     required this.meaningKo,
     required this.pronunciation,
+    this.ttsLocale = defaultVoiceLocaleCode,
     required this.exampleSentence,
     required this.exampleTranslation,
     required this.deck,
@@ -464,6 +721,7 @@ class _SeedWord {
   final String meaningEn;
   final String meaningKo;
   final String pronunciation;
+  final String ttsLocale;
   final String exampleSentence;
   final String exampleTranslation;
   final String deck;

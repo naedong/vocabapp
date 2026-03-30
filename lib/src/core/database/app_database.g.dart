@@ -87,6 +87,18 @@ class $VocabWordsTable extends VocabWords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ttsLocaleMeta = const VerificationMeta(
+    'ttsLocale',
+  );
+  @override
+  late final GeneratedColumn<String> ttsLocale = GeneratedColumn<String>(
+    'tts_locale',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(defaultVoiceLocaleCode),
+  );
   static const VerificationMeta _exampleSentenceMeta = const VerificationMeta(
     'exampleSentence',
   );
@@ -213,6 +225,7 @@ class $VocabWordsTable extends VocabWords
     meaningEn,
     meaningKo,
     pronunciation,
+    ttsLocale,
     exampleSentence,
     exampleTranslation,
     deck,
@@ -288,6 +301,12 @@ class $VocabWordsTable extends VocabWords
       );
     } else if (isInserting) {
       context.missing(_pronunciationMeta);
+    }
+    if (data.containsKey('tts_locale')) {
+      context.handle(
+        _ttsLocaleMeta,
+        ttsLocale.isAcceptableOrUnknown(data['tts_locale']!, _ttsLocaleMeta),
+      );
     }
     if (data.containsKey('example_sentence')) {
       context.handle(
@@ -408,6 +427,10 @@ class $VocabWordsTable extends VocabWords
         DriftSqlType.string,
         data['${effectivePrefix}pronunciation'],
       )!,
+      ttsLocale: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tts_locale'],
+      )!,
       exampleSentence: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}example_sentence'],
@@ -465,6 +488,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   final String meaningEn;
   final String meaningKo;
   final String pronunciation;
+  final String ttsLocale;
   final String exampleSentence;
   final String exampleTranslation;
   final String deck;
@@ -483,6 +507,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     required this.meaningEn,
     required this.meaningKo,
     required this.pronunciation,
+    required this.ttsLocale,
     required this.exampleSentence,
     required this.exampleTranslation,
     required this.deck,
@@ -506,6 +531,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     map['meaning_en'] = Variable<String>(meaningEn);
     map['meaning_ko'] = Variable<String>(meaningKo);
     map['pronunciation'] = Variable<String>(pronunciation);
+    map['tts_locale'] = Variable<String>(ttsLocale);
     map['example_sentence'] = Variable<String>(exampleSentence);
     map['example_translation'] = Variable<String>(exampleTranslation);
     map['deck'] = Variable<String>(deck);
@@ -534,6 +560,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       meaningEn: Value(meaningEn),
       meaningKo: Value(meaningKo),
       pronunciation: Value(pronunciation),
+      ttsLocale: Value(ttsLocale),
       exampleSentence: Value(exampleSentence),
       exampleTranslation: Value(exampleTranslation),
       deck: Value(deck),
@@ -564,6 +591,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       meaningEn: serializer.fromJson<String>(json['meaningEn']),
       meaningKo: serializer.fromJson<String>(json['meaningKo']),
       pronunciation: serializer.fromJson<String>(json['pronunciation']),
+      ttsLocale: serializer.fromJson<String>(json['ttsLocale']),
       exampleSentence: serializer.fromJson<String>(json['exampleSentence']),
       exampleTranslation: serializer.fromJson<String>(
         json['exampleTranslation'],
@@ -589,6 +617,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       'meaningEn': serializer.toJson<String>(meaningEn),
       'meaningKo': serializer.toJson<String>(meaningKo),
       'pronunciation': serializer.toJson<String>(pronunciation),
+      'ttsLocale': serializer.toJson<String>(ttsLocale),
       'exampleSentence': serializer.toJson<String>(exampleSentence),
       'exampleTranslation': serializer.toJson<String>(exampleTranslation),
       'deck': serializer.toJson<String>(deck),
@@ -610,6 +639,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     String? meaningEn,
     String? meaningKo,
     String? pronunciation,
+    String? ttsLocale,
     String? exampleSentence,
     String? exampleTranslation,
     String? deck,
@@ -628,6 +658,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     meaningEn: meaningEn ?? this.meaningEn,
     meaningKo: meaningKo ?? this.meaningKo,
     pronunciation: pronunciation ?? this.pronunciation,
+    ttsLocale: ttsLocale ?? this.ttsLocale,
     exampleSentence: exampleSentence ?? this.exampleSentence,
     exampleTranslation: exampleTranslation ?? this.exampleTranslation,
     deck: deck ?? this.deck,
@@ -654,6 +685,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       pronunciation: data.pronunciation.present
           ? data.pronunciation.value
           : this.pronunciation,
+      ttsLocale: data.ttsLocale.present ? data.ttsLocale.value : this.ttsLocale,
       exampleSentence: data.exampleSentence.present
           ? data.exampleSentence.value
           : this.exampleSentence,
@@ -691,6 +723,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
           ..write('meaningEn: $meaningEn, ')
           ..write('meaningKo: $meaningKo, ')
           ..write('pronunciation: $pronunciation, ')
+          ..write('ttsLocale: $ttsLocale, ')
           ..write('exampleSentence: $exampleSentence, ')
           ..write('exampleTranslation: $exampleTranslation, ')
           ..write('deck: $deck, ')
@@ -714,6 +747,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     meaningEn,
     meaningKo,
     pronunciation,
+    ttsLocale,
     exampleSentence,
     exampleTranslation,
     deck,
@@ -736,6 +770,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
           other.meaningEn == this.meaningEn &&
           other.meaningKo == this.meaningKo &&
           other.pronunciation == this.pronunciation &&
+          other.ttsLocale == this.ttsLocale &&
           other.exampleSentence == this.exampleSentence &&
           other.exampleTranslation == this.exampleTranslation &&
           other.deck == this.deck &&
@@ -756,6 +791,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   final Value<String> meaningEn;
   final Value<String> meaningKo;
   final Value<String> pronunciation;
+  final Value<String> ttsLocale;
   final Value<String> exampleSentence;
   final Value<String> exampleTranslation;
   final Value<String> deck;
@@ -774,6 +810,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     this.meaningEn = const Value.absent(),
     this.meaningKo = const Value.absent(),
     this.pronunciation = const Value.absent(),
+    this.ttsLocale = const Value.absent(),
     this.exampleSentence = const Value.absent(),
     this.exampleTranslation = const Value.absent(),
     this.deck = const Value.absent(),
@@ -793,6 +830,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     required String meaningEn,
     required String meaningKo,
     required String pronunciation,
+    this.ttsLocale = const Value.absent(),
     required String exampleSentence,
     required String exampleTranslation,
     this.deck = const Value.absent(),
@@ -817,6 +855,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     Expression<String>? meaningEn,
     Expression<String>? meaningKo,
     Expression<String>? pronunciation,
+    Expression<String>? ttsLocale,
     Expression<String>? exampleSentence,
     Expression<String>? exampleTranslation,
     Expression<String>? deck,
@@ -836,6 +875,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
       if (meaningEn != null) 'meaning_en': meaningEn,
       if (meaningKo != null) 'meaning_ko': meaningKo,
       if (pronunciation != null) 'pronunciation': pronunciation,
+      if (ttsLocale != null) 'tts_locale': ttsLocale,
       if (exampleSentence != null) 'example_sentence': exampleSentence,
       if (exampleTranslation != null) 'example_translation': exampleTranslation,
       if (deck != null) 'deck': deck,
@@ -857,6 +897,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     Value<String>? meaningEn,
     Value<String>? meaningKo,
     Value<String>? pronunciation,
+    Value<String>? ttsLocale,
     Value<String>? exampleSentence,
     Value<String>? exampleTranslation,
     Value<String>? deck,
@@ -876,6 +917,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
       meaningEn: meaningEn ?? this.meaningEn,
       meaningKo: meaningKo ?? this.meaningKo,
       pronunciation: pronunciation ?? this.pronunciation,
+      ttsLocale: ttsLocale ?? this.ttsLocale,
       exampleSentence: exampleSentence ?? this.exampleSentence,
       exampleTranslation: exampleTranslation ?? this.exampleTranslation,
       deck: deck ?? this.deck,
@@ -912,6 +954,9 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     }
     if (pronunciation.present) {
       map['pronunciation'] = Variable<String>(pronunciation.value);
+    }
+    if (ttsLocale.present) {
+      map['tts_locale'] = Variable<String>(ttsLocale.value);
     }
     if (exampleSentence.present) {
       map['example_sentence'] = Variable<String>(exampleSentence.value);
@@ -956,6 +1001,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
           ..write('meaningEn: $meaningEn, ')
           ..write('meaningKo: $meaningKo, ')
           ..write('pronunciation: $pronunciation, ')
+          ..write('ttsLocale: $ttsLocale, ')
           ..write('exampleSentence: $exampleSentence, ')
           ..write('exampleTranslation: $exampleTranslation, ')
           ..write('deck: $deck, ')
@@ -1333,11 +1379,1171 @@ class StudySessionsCompanion extends UpdateCompanion<StudySession> {
   }
 }
 
+class $ReadingDocumentsTable extends ReadingDocuments
+    with TableInfo<$ReadingDocumentsTable, ReadingDocument> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadingDocumentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
+    'sourceUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+    'source_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceTitleMeta = const VerificationMeta(
+    'sourceTitle',
+  );
+  @override
+  late final GeneratedColumn<String> sourceTitle = GeneratedColumn<String>(
+    'source_title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceNameMeta = const VerificationMeta(
+    'sourceName',
+  );
+  @override
+  late final GeneratedColumn<String> sourceName = GeneratedColumn<String>(
+    'source_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _scriptTextMeta = const VerificationMeta(
+    'scriptText',
+  );
+  @override
+  late final GeneratedColumn<String> scriptText = GeneratedColumn<String>(
+    'script_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _publishedAtMeta = const VerificationMeta(
+    'publishedAt',
+  );
+  @override
+  late final GeneratedColumn<int> publishedAt = GeneratedColumn<int>(
+    'published_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now().millisecondsSinceEpoch,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sourceUrl,
+    sourceTitle,
+    sourceName,
+    description,
+    scriptText,
+    publishedAt,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reading_documents';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadingDocument> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('source_url')) {
+      context.handle(
+        _sourceUrlMeta,
+        sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceUrlMeta);
+    }
+    if (data.containsKey('source_title')) {
+      context.handle(
+        _sourceTitleMeta,
+        sourceTitle.isAcceptableOrUnknown(
+          data['source_title']!,
+          _sourceTitleMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceTitleMeta);
+    }
+    if (data.containsKey('source_name')) {
+      context.handle(
+        _sourceNameMeta,
+        sourceName.isAcceptableOrUnknown(data['source_name']!, _sourceNameMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('script_text')) {
+      context.handle(
+        _scriptTextMeta,
+        scriptText.isAcceptableOrUnknown(data['script_text']!, _scriptTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scriptTextMeta);
+    }
+    if (data.containsKey('published_at')) {
+      context.handle(
+        _publishedAtMeta,
+        publishedAt.isAcceptableOrUnknown(
+          data['published_at']!,
+          _publishedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {sourceUrl},
+  ];
+  @override
+  ReadingDocument map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadingDocument(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      sourceUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_url'],
+      )!,
+      sourceTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_title'],
+      )!,
+      sourceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_name'],
+      ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      scriptText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}script_text'],
+      )!,
+      publishedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}published_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      ),
+    );
+  }
+
+  @override
+  $ReadingDocumentsTable createAlias(String alias) {
+    return $ReadingDocumentsTable(attachedDatabase, alias);
+  }
+}
+
+class ReadingDocument extends DataClass implements Insertable<ReadingDocument> {
+  final int id;
+  final String sourceUrl;
+  final String sourceTitle;
+  final String? sourceName;
+  final String? description;
+  final String scriptText;
+  final int? publishedAt;
+  final int createdAt;
+  final int? updatedAt;
+  const ReadingDocument({
+    required this.id,
+    required this.sourceUrl,
+    required this.sourceTitle,
+    this.sourceName,
+    this.description,
+    required this.scriptText,
+    this.publishedAt,
+    required this.createdAt,
+    this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['source_url'] = Variable<String>(sourceUrl);
+    map['source_title'] = Variable<String>(sourceTitle);
+    if (!nullToAbsent || sourceName != null) {
+      map['source_name'] = Variable<String>(sourceName);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['script_text'] = Variable<String>(scriptText);
+    if (!nullToAbsent || publishedAt != null) {
+      map['published_at'] = Variable<int>(publishedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<int>(updatedAt);
+    }
+    return map;
+  }
+
+  ReadingDocumentsCompanion toCompanion(bool nullToAbsent) {
+    return ReadingDocumentsCompanion(
+      id: Value(id),
+      sourceUrl: Value(sourceUrl),
+      sourceTitle: Value(sourceTitle),
+      sourceName: sourceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceName),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      scriptText: Value(scriptText),
+      publishedAt: publishedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publishedAt),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory ReadingDocument.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadingDocument(
+      id: serializer.fromJson<int>(json['id']),
+      sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
+      sourceTitle: serializer.fromJson<String>(json['sourceTitle']),
+      sourceName: serializer.fromJson<String?>(json['sourceName']),
+      description: serializer.fromJson<String?>(json['description']),
+      scriptText: serializer.fromJson<String>(json['scriptText']),
+      publishedAt: serializer.fromJson<int?>(json['publishedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'sourceUrl': serializer.toJson<String>(sourceUrl),
+      'sourceTitle': serializer.toJson<String>(sourceTitle),
+      'sourceName': serializer.toJson<String?>(sourceName),
+      'description': serializer.toJson<String?>(description),
+      'scriptText': serializer.toJson<String>(scriptText),
+      'publishedAt': serializer.toJson<int?>(publishedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int?>(updatedAt),
+    };
+  }
+
+  ReadingDocument copyWith({
+    int? id,
+    String? sourceUrl,
+    String? sourceTitle,
+    Value<String?> sourceName = const Value.absent(),
+    Value<String?> description = const Value.absent(),
+    String? scriptText,
+    Value<int?> publishedAt = const Value.absent(),
+    int? createdAt,
+    Value<int?> updatedAt = const Value.absent(),
+  }) => ReadingDocument(
+    id: id ?? this.id,
+    sourceUrl: sourceUrl ?? this.sourceUrl,
+    sourceTitle: sourceTitle ?? this.sourceTitle,
+    sourceName: sourceName.present ? sourceName.value : this.sourceName,
+    description: description.present ? description.value : this.description,
+    scriptText: scriptText ?? this.scriptText,
+    publishedAt: publishedAt.present ? publishedAt.value : this.publishedAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
+  ReadingDocument copyWithCompanion(ReadingDocumentsCompanion data) {
+    return ReadingDocument(
+      id: data.id.present ? data.id.value : this.id,
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      sourceTitle: data.sourceTitle.present
+          ? data.sourceTitle.value
+          : this.sourceTitle,
+      sourceName: data.sourceName.present
+          ? data.sourceName.value
+          : this.sourceName,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      scriptText: data.scriptText.present
+          ? data.scriptText.value
+          : this.scriptText,
+      publishedAt: data.publishedAt.present
+          ? data.publishedAt.value
+          : this.publishedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingDocument(')
+          ..write('id: $id, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('sourceTitle: $sourceTitle, ')
+          ..write('sourceName: $sourceName, ')
+          ..write('description: $description, ')
+          ..write('scriptText: $scriptText, ')
+          ..write('publishedAt: $publishedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sourceUrl,
+    sourceTitle,
+    sourceName,
+    description,
+    scriptText,
+    publishedAt,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadingDocument &&
+          other.id == this.id &&
+          other.sourceUrl == this.sourceUrl &&
+          other.sourceTitle == this.sourceTitle &&
+          other.sourceName == this.sourceName &&
+          other.description == this.description &&
+          other.scriptText == this.scriptText &&
+          other.publishedAt == this.publishedAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ReadingDocumentsCompanion extends UpdateCompanion<ReadingDocument> {
+  final Value<int> id;
+  final Value<String> sourceUrl;
+  final Value<String> sourceTitle;
+  final Value<String?> sourceName;
+  final Value<String?> description;
+  final Value<String> scriptText;
+  final Value<int?> publishedAt;
+  final Value<int> createdAt;
+  final Value<int?> updatedAt;
+  const ReadingDocumentsCompanion({
+    this.id = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.sourceTitle = const Value.absent(),
+    this.sourceName = const Value.absent(),
+    this.description = const Value.absent(),
+    this.scriptText = const Value.absent(),
+    this.publishedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  ReadingDocumentsCompanion.insert({
+    this.id = const Value.absent(),
+    required String sourceUrl,
+    required String sourceTitle,
+    this.sourceName = const Value.absent(),
+    this.description = const Value.absent(),
+    required String scriptText,
+    this.publishedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : sourceUrl = Value(sourceUrl),
+       sourceTitle = Value(sourceTitle),
+       scriptText = Value(scriptText);
+  static Insertable<ReadingDocument> custom({
+    Expression<int>? id,
+    Expression<String>? sourceUrl,
+    Expression<String>? sourceTitle,
+    Expression<String>? sourceName,
+    Expression<String>? description,
+    Expression<String>? scriptText,
+    Expression<int>? publishedAt,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (sourceTitle != null) 'source_title': sourceTitle,
+      if (sourceName != null) 'source_name': sourceName,
+      if (description != null) 'description': description,
+      if (scriptText != null) 'script_text': scriptText,
+      if (publishedAt != null) 'published_at': publishedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  ReadingDocumentsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? sourceUrl,
+    Value<String>? sourceTitle,
+    Value<String?>? sourceName,
+    Value<String?>? description,
+    Value<String>? scriptText,
+    Value<int?>? publishedAt,
+    Value<int>? createdAt,
+    Value<int?>? updatedAt,
+  }) {
+    return ReadingDocumentsCompanion(
+      id: id ?? this.id,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      sourceTitle: sourceTitle ?? this.sourceTitle,
+      sourceName: sourceName ?? this.sourceName,
+      description: description ?? this.description,
+      scriptText: scriptText ?? this.scriptText,
+      publishedAt: publishedAt ?? this.publishedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (sourceTitle.present) {
+      map['source_title'] = Variable<String>(sourceTitle.value);
+    }
+    if (sourceName.present) {
+      map['source_name'] = Variable<String>(sourceName.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (scriptText.present) {
+      map['script_text'] = Variable<String>(scriptText.value);
+    }
+    if (publishedAt.present) {
+      map['published_at'] = Variable<int>(publishedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingDocumentsCompanion(')
+          ..write('id: $id, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('sourceTitle: $sourceTitle, ')
+          ..write('sourceName: $sourceName, ')
+          ..write('description: $description, ')
+          ..write('scriptText: $scriptText, ')
+          ..write('publishedAt: $publishedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReadingNotesTable extends ReadingNotes
+    with TableInfo<$ReadingNotesTable, ReadingNote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadingNotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _documentIdMeta = const VerificationMeta(
+    'documentId',
+  );
+  @override
+  late final GeneratedColumn<int> documentId = GeneratedColumn<int>(
+    'document_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES reading_documents (id)',
+    ),
+  );
+  static const VerificationMeta _noteTypeMeta = const VerificationMeta(
+    'noteType',
+  );
+  @override
+  late final GeneratedColumn<String> noteType = GeneratedColumn<String>(
+    'note_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _surfaceTextMeta = const VerificationMeta(
+    'surfaceText',
+  );
+  @override
+  late final GeneratedColumn<String> surfaceText = GeneratedColumn<String>(
+    'surface_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _normalizedTextMeta = const VerificationMeta(
+    'normalizedText',
+  );
+  @override
+  late final GeneratedColumn<String> normalizedText = GeneratedColumn<String>(
+    'normalized_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _meaningMeta = const VerificationMeta(
+    'meaning',
+  );
+  @override
+  late final GeneratedColumn<String> meaning = GeneratedColumn<String>(
+    'meaning',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _explanationMeta = const VerificationMeta(
+    'explanation',
+  );
+  @override
+  late final GeneratedColumn<String> explanation = GeneratedColumn<String>(
+    'explanation',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contextSnippetMeta = const VerificationMeta(
+    'contextSnippet',
+  );
+  @override
+  late final GeneratedColumn<String> contextSnippet = GeneratedColumn<String>(
+    'context_snippet',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now().millisecondsSinceEpoch,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    documentId,
+    noteType,
+    surfaceText,
+    normalizedText,
+    meaning,
+    explanation,
+    contextSnippet,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reading_notes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadingNote> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('document_id')) {
+      context.handle(
+        _documentIdMeta,
+        documentId.isAcceptableOrUnknown(data['document_id']!, _documentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_documentIdMeta);
+    }
+    if (data.containsKey('note_type')) {
+      context.handle(
+        _noteTypeMeta,
+        noteType.isAcceptableOrUnknown(data['note_type']!, _noteTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteTypeMeta);
+    }
+    if (data.containsKey('surface_text')) {
+      context.handle(
+        _surfaceTextMeta,
+        surfaceText.isAcceptableOrUnknown(
+          data['surface_text']!,
+          _surfaceTextMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_surfaceTextMeta);
+    }
+    if (data.containsKey('normalized_text')) {
+      context.handle(
+        _normalizedTextMeta,
+        normalizedText.isAcceptableOrUnknown(
+          data['normalized_text']!,
+          _normalizedTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('meaning')) {
+      context.handle(
+        _meaningMeta,
+        meaning.isAcceptableOrUnknown(data['meaning']!, _meaningMeta),
+      );
+    }
+    if (data.containsKey('explanation')) {
+      context.handle(
+        _explanationMeta,
+        explanation.isAcceptableOrUnknown(
+          data['explanation']!,
+          _explanationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('context_snippet')) {
+      context.handle(
+        _contextSnippetMeta,
+        contextSnippet.isAcceptableOrUnknown(
+          data['context_snippet']!,
+          _contextSnippetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReadingNote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadingNote(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      documentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}document_id'],
+      )!,
+      noteType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_type'],
+      )!,
+      surfaceText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}surface_text'],
+      )!,
+      normalizedText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}normalized_text'],
+      ),
+      meaning: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meaning'],
+      ),
+      explanation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}explanation'],
+      ),
+      contextSnippet: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}context_snippet'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadingNotesTable createAlias(String alias) {
+    return $ReadingNotesTable(attachedDatabase, alias);
+  }
+}
+
+class ReadingNote extends DataClass implements Insertable<ReadingNote> {
+  final int id;
+  final int documentId;
+  final String noteType;
+  final String surfaceText;
+  final String? normalizedText;
+  final String? meaning;
+  final String? explanation;
+  final String? contextSnippet;
+  final int createdAt;
+  const ReadingNote({
+    required this.id,
+    required this.documentId,
+    required this.noteType,
+    required this.surfaceText,
+    this.normalizedText,
+    this.meaning,
+    this.explanation,
+    this.contextSnippet,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['document_id'] = Variable<int>(documentId);
+    map['note_type'] = Variable<String>(noteType);
+    map['surface_text'] = Variable<String>(surfaceText);
+    if (!nullToAbsent || normalizedText != null) {
+      map['normalized_text'] = Variable<String>(normalizedText);
+    }
+    if (!nullToAbsent || meaning != null) {
+      map['meaning'] = Variable<String>(meaning);
+    }
+    if (!nullToAbsent || explanation != null) {
+      map['explanation'] = Variable<String>(explanation);
+    }
+    if (!nullToAbsent || contextSnippet != null) {
+      map['context_snippet'] = Variable<String>(contextSnippet);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  ReadingNotesCompanion toCompanion(bool nullToAbsent) {
+    return ReadingNotesCompanion(
+      id: Value(id),
+      documentId: Value(documentId),
+      noteType: Value(noteType),
+      surfaceText: Value(surfaceText),
+      normalizedText: normalizedText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(normalizedText),
+      meaning: meaning == null && nullToAbsent
+          ? const Value.absent()
+          : Value(meaning),
+      explanation: explanation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(explanation),
+      contextSnippet: contextSnippet == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contextSnippet),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ReadingNote.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadingNote(
+      id: serializer.fromJson<int>(json['id']),
+      documentId: serializer.fromJson<int>(json['documentId']),
+      noteType: serializer.fromJson<String>(json['noteType']),
+      surfaceText: serializer.fromJson<String>(json['surfaceText']),
+      normalizedText: serializer.fromJson<String?>(json['normalizedText']),
+      meaning: serializer.fromJson<String?>(json['meaning']),
+      explanation: serializer.fromJson<String?>(json['explanation']),
+      contextSnippet: serializer.fromJson<String?>(json['contextSnippet']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'documentId': serializer.toJson<int>(documentId),
+      'noteType': serializer.toJson<String>(noteType),
+      'surfaceText': serializer.toJson<String>(surfaceText),
+      'normalizedText': serializer.toJson<String?>(normalizedText),
+      'meaning': serializer.toJson<String?>(meaning),
+      'explanation': serializer.toJson<String?>(explanation),
+      'contextSnippet': serializer.toJson<String?>(contextSnippet),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  ReadingNote copyWith({
+    int? id,
+    int? documentId,
+    String? noteType,
+    String? surfaceText,
+    Value<String?> normalizedText = const Value.absent(),
+    Value<String?> meaning = const Value.absent(),
+    Value<String?> explanation = const Value.absent(),
+    Value<String?> contextSnippet = const Value.absent(),
+    int? createdAt,
+  }) => ReadingNote(
+    id: id ?? this.id,
+    documentId: documentId ?? this.documentId,
+    noteType: noteType ?? this.noteType,
+    surfaceText: surfaceText ?? this.surfaceText,
+    normalizedText: normalizedText.present
+        ? normalizedText.value
+        : this.normalizedText,
+    meaning: meaning.present ? meaning.value : this.meaning,
+    explanation: explanation.present ? explanation.value : this.explanation,
+    contextSnippet: contextSnippet.present
+        ? contextSnippet.value
+        : this.contextSnippet,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ReadingNote copyWithCompanion(ReadingNotesCompanion data) {
+    return ReadingNote(
+      id: data.id.present ? data.id.value : this.id,
+      documentId: data.documentId.present
+          ? data.documentId.value
+          : this.documentId,
+      noteType: data.noteType.present ? data.noteType.value : this.noteType,
+      surfaceText: data.surfaceText.present
+          ? data.surfaceText.value
+          : this.surfaceText,
+      normalizedText: data.normalizedText.present
+          ? data.normalizedText.value
+          : this.normalizedText,
+      meaning: data.meaning.present ? data.meaning.value : this.meaning,
+      explanation: data.explanation.present
+          ? data.explanation.value
+          : this.explanation,
+      contextSnippet: data.contextSnippet.present
+          ? data.contextSnippet.value
+          : this.contextSnippet,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingNote(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('noteType: $noteType, ')
+          ..write('surfaceText: $surfaceText, ')
+          ..write('normalizedText: $normalizedText, ')
+          ..write('meaning: $meaning, ')
+          ..write('explanation: $explanation, ')
+          ..write('contextSnippet: $contextSnippet, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    documentId,
+    noteType,
+    surfaceText,
+    normalizedText,
+    meaning,
+    explanation,
+    contextSnippet,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadingNote &&
+          other.id == this.id &&
+          other.documentId == this.documentId &&
+          other.noteType == this.noteType &&
+          other.surfaceText == this.surfaceText &&
+          other.normalizedText == this.normalizedText &&
+          other.meaning == this.meaning &&
+          other.explanation == this.explanation &&
+          other.contextSnippet == this.contextSnippet &&
+          other.createdAt == this.createdAt);
+}
+
+class ReadingNotesCompanion extends UpdateCompanion<ReadingNote> {
+  final Value<int> id;
+  final Value<int> documentId;
+  final Value<String> noteType;
+  final Value<String> surfaceText;
+  final Value<String?> normalizedText;
+  final Value<String?> meaning;
+  final Value<String?> explanation;
+  final Value<String?> contextSnippet;
+  final Value<int> createdAt;
+  const ReadingNotesCompanion({
+    this.id = const Value.absent(),
+    this.documentId = const Value.absent(),
+    this.noteType = const Value.absent(),
+    this.surfaceText = const Value.absent(),
+    this.normalizedText = const Value.absent(),
+    this.meaning = const Value.absent(),
+    this.explanation = const Value.absent(),
+    this.contextSnippet = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  ReadingNotesCompanion.insert({
+    this.id = const Value.absent(),
+    required int documentId,
+    required String noteType,
+    required String surfaceText,
+    this.normalizedText = const Value.absent(),
+    this.meaning = const Value.absent(),
+    this.explanation = const Value.absent(),
+    this.contextSnippet = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : documentId = Value(documentId),
+       noteType = Value(noteType),
+       surfaceText = Value(surfaceText);
+  static Insertable<ReadingNote> custom({
+    Expression<int>? id,
+    Expression<int>? documentId,
+    Expression<String>? noteType,
+    Expression<String>? surfaceText,
+    Expression<String>? normalizedText,
+    Expression<String>? meaning,
+    Expression<String>? explanation,
+    Expression<String>? contextSnippet,
+    Expression<int>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (documentId != null) 'document_id': documentId,
+      if (noteType != null) 'note_type': noteType,
+      if (surfaceText != null) 'surface_text': surfaceText,
+      if (normalizedText != null) 'normalized_text': normalizedText,
+      if (meaning != null) 'meaning': meaning,
+      if (explanation != null) 'explanation': explanation,
+      if (contextSnippet != null) 'context_snippet': contextSnippet,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  ReadingNotesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? documentId,
+    Value<String>? noteType,
+    Value<String>? surfaceText,
+    Value<String?>? normalizedText,
+    Value<String?>? meaning,
+    Value<String?>? explanation,
+    Value<String?>? contextSnippet,
+    Value<int>? createdAt,
+  }) {
+    return ReadingNotesCompanion(
+      id: id ?? this.id,
+      documentId: documentId ?? this.documentId,
+      noteType: noteType ?? this.noteType,
+      surfaceText: surfaceText ?? this.surfaceText,
+      normalizedText: normalizedText ?? this.normalizedText,
+      meaning: meaning ?? this.meaning,
+      explanation: explanation ?? this.explanation,
+      contextSnippet: contextSnippet ?? this.contextSnippet,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (documentId.present) {
+      map['document_id'] = Variable<int>(documentId.value);
+    }
+    if (noteType.present) {
+      map['note_type'] = Variable<String>(noteType.value);
+    }
+    if (surfaceText.present) {
+      map['surface_text'] = Variable<String>(surfaceText.value);
+    }
+    if (normalizedText.present) {
+      map['normalized_text'] = Variable<String>(normalizedText.value);
+    }
+    if (meaning.present) {
+      map['meaning'] = Variable<String>(meaning.value);
+    }
+    if (explanation.present) {
+      map['explanation'] = Variable<String>(explanation.value);
+    }
+    if (contextSnippet.present) {
+      map['context_snippet'] = Variable<String>(contextSnippet.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingNotesCompanion(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('noteType: $noteType, ')
+          ..write('surfaceText: $surfaceText, ')
+          ..write('normalizedText: $normalizedText, ')
+          ..write('meaning: $meaning, ')
+          ..write('explanation: $explanation, ')
+          ..write('contextSnippet: $contextSnippet, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $VocabWordsTable vocabWords = $VocabWordsTable(this);
   late final $StudySessionsTable studySessions = $StudySessionsTable(this);
+  late final $ReadingDocumentsTable readingDocuments = $ReadingDocumentsTable(
+    this,
+  );
+  late final $ReadingNotesTable readingNotes = $ReadingNotesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1345,6 +2551,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     vocabWords,
     studySessions,
+    readingDocuments,
+    readingNotes,
   ];
 }
 
@@ -1357,6 +2565,7 @@ typedef $$VocabWordsTableCreateCompanionBuilder =
       required String meaningEn,
       required String meaningKo,
       required String pronunciation,
+      Value<String> ttsLocale,
       required String exampleSentence,
       required String exampleTranslation,
       Value<String> deck,
@@ -1377,6 +2586,7 @@ typedef $$VocabWordsTableUpdateCompanionBuilder =
       Value<String> meaningEn,
       Value<String> meaningKo,
       Value<String> pronunciation,
+      Value<String> ttsLocale,
       Value<String> exampleSentence,
       Value<String> exampleTranslation,
       Value<String> deck,
@@ -1430,6 +2640,11 @@ class $$VocabWordsTableFilterComposer
 
   ColumnFilters<String> get pronunciation => $composableBuilder(
     column: $table.pronunciation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ttsLocale => $composableBuilder(
+    column: $table.ttsLocale,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1528,6 +2743,11 @@ class $$VocabWordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ttsLocale => $composableBuilder(
+    column: $table.ttsLocale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get exampleSentence => $composableBuilder(
     column: $table.exampleSentence,
     builder: (column) => ColumnOrderings(column),
@@ -1613,6 +2833,9 @@ class $$VocabWordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get ttsLocale =>
+      $composableBuilder(column: $table.ttsLocale, builder: (column) => column);
+
   GeneratedColumn<String> get exampleSentence => $composableBuilder(
     column: $table.exampleSentence,
     builder: (column) => column,
@@ -1696,6 +2919,7 @@ class $$VocabWordsTableTableManager
                 Value<String> meaningEn = const Value.absent(),
                 Value<String> meaningKo = const Value.absent(),
                 Value<String> pronunciation = const Value.absent(),
+                Value<String> ttsLocale = const Value.absent(),
                 Value<String> exampleSentence = const Value.absent(),
                 Value<String> exampleTranslation = const Value.absent(),
                 Value<String> deck = const Value.absent(),
@@ -1714,6 +2938,7 @@ class $$VocabWordsTableTableManager
                 meaningEn: meaningEn,
                 meaningKo: meaningKo,
                 pronunciation: pronunciation,
+                ttsLocale: ttsLocale,
                 exampleSentence: exampleSentence,
                 exampleTranslation: exampleTranslation,
                 deck: deck,
@@ -1734,6 +2959,7 @@ class $$VocabWordsTableTableManager
                 required String meaningEn,
                 required String meaningKo,
                 required String pronunciation,
+                Value<String> ttsLocale = const Value.absent(),
                 required String exampleSentence,
                 required String exampleTranslation,
                 Value<String> deck = const Value.absent(),
@@ -1752,6 +2978,7 @@ class $$VocabWordsTableTableManager
                 meaningEn: meaningEn,
                 meaningKo: meaningKo,
                 pronunciation: pronunciation,
+                ttsLocale: ttsLocale,
                 exampleSentence: exampleSentence,
                 exampleTranslation: exampleTranslation,
                 deck: deck,
@@ -1985,6 +3212,797 @@ typedef $$StudySessionsTableProcessedTableManager =
       StudySession,
       PrefetchHooks Function()
     >;
+typedef $$ReadingDocumentsTableCreateCompanionBuilder =
+    ReadingDocumentsCompanion Function({
+      Value<int> id,
+      required String sourceUrl,
+      required String sourceTitle,
+      Value<String?> sourceName,
+      Value<String?> description,
+      required String scriptText,
+      Value<int?> publishedAt,
+      Value<int> createdAt,
+      Value<int?> updatedAt,
+    });
+typedef $$ReadingDocumentsTableUpdateCompanionBuilder =
+    ReadingDocumentsCompanion Function({
+      Value<int> id,
+      Value<String> sourceUrl,
+      Value<String> sourceTitle,
+      Value<String?> sourceName,
+      Value<String?> description,
+      Value<String> scriptText,
+      Value<int?> publishedAt,
+      Value<int> createdAt,
+      Value<int?> updatedAt,
+    });
+
+final class $$ReadingDocumentsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ReadingDocumentsTable, ReadingDocument> {
+  $$ReadingDocumentsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$ReadingNotesTable, List<ReadingNote>>
+  _readingNotesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.readingNotes,
+    aliasName: $_aliasNameGenerator(
+      db.readingDocuments.id,
+      db.readingNotes.documentId,
+    ),
+  );
+
+  $$ReadingNotesTableProcessedTableManager get readingNotesRefs {
+    final manager = $$ReadingNotesTableTableManager(
+      $_db,
+      $_db.readingNotes,
+    ).filter((f) => f.documentId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_readingNotesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ReadingDocumentsTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadingDocumentsTable> {
+  $$ReadingDocumentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceTitle => $composableBuilder(
+    column: $table.sourceTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scriptText => $composableBuilder(
+    column: $table.scriptText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get publishedAt => $composableBuilder(
+    column: $table.publishedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> readingNotesRefs(
+    Expression<bool> Function($$ReadingNotesTableFilterComposer f) f,
+  ) {
+    final $$ReadingNotesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readingNotes,
+      getReferencedColumn: (t) => t.documentId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingNotesTableFilterComposer(
+            $db: $db,
+            $table: $db.readingNotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ReadingDocumentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadingDocumentsTable> {
+  $$ReadingDocumentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceTitle => $composableBuilder(
+    column: $table.sourceTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scriptText => $composableBuilder(
+    column: $table.scriptText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get publishedAt => $composableBuilder(
+    column: $table.publishedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReadingDocumentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadingDocumentsTable> {
+  $$ReadingDocumentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceTitle => $composableBuilder(
+    column: $table.sourceTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get scriptText => $composableBuilder(
+    column: $table.scriptText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get publishedAt => $composableBuilder(
+    column: $table.publishedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> readingNotesRefs<T extends Object>(
+    Expression<T> Function($$ReadingNotesTableAnnotationComposer a) f,
+  ) {
+    final $$ReadingNotesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readingNotes,
+      getReferencedColumn: (t) => t.documentId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingNotesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.readingNotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ReadingDocumentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadingDocumentsTable,
+          ReadingDocument,
+          $$ReadingDocumentsTableFilterComposer,
+          $$ReadingDocumentsTableOrderingComposer,
+          $$ReadingDocumentsTableAnnotationComposer,
+          $$ReadingDocumentsTableCreateCompanionBuilder,
+          $$ReadingDocumentsTableUpdateCompanionBuilder,
+          (ReadingDocument, $$ReadingDocumentsTableReferences),
+          ReadingDocument,
+          PrefetchHooks Function({bool readingNotesRefs})
+        > {
+  $$ReadingDocumentsTableTableManager(
+    _$AppDatabase db,
+    $ReadingDocumentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadingDocumentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadingDocumentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadingDocumentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> sourceUrl = const Value.absent(),
+                Value<String> sourceTitle = const Value.absent(),
+                Value<String?> sourceName = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String> scriptText = const Value.absent(),
+                Value<int?> publishedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> updatedAt = const Value.absent(),
+              }) => ReadingDocumentsCompanion(
+                id: id,
+                sourceUrl: sourceUrl,
+                sourceTitle: sourceTitle,
+                sourceName: sourceName,
+                description: description,
+                scriptText: scriptText,
+                publishedAt: publishedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String sourceUrl,
+                required String sourceTitle,
+                Value<String?> sourceName = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                required String scriptText,
+                Value<int?> publishedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> updatedAt = const Value.absent(),
+              }) => ReadingDocumentsCompanion.insert(
+                id: id,
+                sourceUrl: sourceUrl,
+                sourceTitle: sourceTitle,
+                sourceName: sourceName,
+                description: description,
+                scriptText: scriptText,
+                publishedAt: publishedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ReadingDocumentsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({readingNotesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (readingNotesRefs) db.readingNotes],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (readingNotesRefs)
+                    await $_getPrefetchedData<
+                      ReadingDocument,
+                      $ReadingDocumentsTable,
+                      ReadingNote
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ReadingDocumentsTableReferences
+                          ._readingNotesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ReadingDocumentsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).readingNotesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.documentId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ReadingDocumentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadingDocumentsTable,
+      ReadingDocument,
+      $$ReadingDocumentsTableFilterComposer,
+      $$ReadingDocumentsTableOrderingComposer,
+      $$ReadingDocumentsTableAnnotationComposer,
+      $$ReadingDocumentsTableCreateCompanionBuilder,
+      $$ReadingDocumentsTableUpdateCompanionBuilder,
+      (ReadingDocument, $$ReadingDocumentsTableReferences),
+      ReadingDocument,
+      PrefetchHooks Function({bool readingNotesRefs})
+    >;
+typedef $$ReadingNotesTableCreateCompanionBuilder =
+    ReadingNotesCompanion Function({
+      Value<int> id,
+      required int documentId,
+      required String noteType,
+      required String surfaceText,
+      Value<String?> normalizedText,
+      Value<String?> meaning,
+      Value<String?> explanation,
+      Value<String?> contextSnippet,
+      Value<int> createdAt,
+    });
+typedef $$ReadingNotesTableUpdateCompanionBuilder =
+    ReadingNotesCompanion Function({
+      Value<int> id,
+      Value<int> documentId,
+      Value<String> noteType,
+      Value<String> surfaceText,
+      Value<String?> normalizedText,
+      Value<String?> meaning,
+      Value<String?> explanation,
+      Value<String?> contextSnippet,
+      Value<int> createdAt,
+    });
+
+final class $$ReadingNotesTableReferences
+    extends BaseReferences<_$AppDatabase, $ReadingNotesTable, ReadingNote> {
+  $$ReadingNotesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $ReadingDocumentsTable _documentIdTable(_$AppDatabase db) =>
+      db.readingDocuments.createAlias(
+        $_aliasNameGenerator(
+          db.readingNotes.documentId,
+          db.readingDocuments.id,
+        ),
+      );
+
+  $$ReadingDocumentsTableProcessedTableManager get documentId {
+    final $_column = $_itemColumn<int>('document_id')!;
+
+    final manager = $$ReadingDocumentsTableTableManager(
+      $_db,
+      $_db.readingDocuments,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_documentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ReadingNotesTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadingNotesTable> {
+  $$ReadingNotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get noteType => $composableBuilder(
+    column: $table.noteType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get surfaceText => $composableBuilder(
+    column: $table.surfaceText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get normalizedText => $composableBuilder(
+    column: $table.normalizedText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get meaning => $composableBuilder(
+    column: $table.meaning,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get explanation => $composableBuilder(
+    column: $table.explanation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contextSnippet => $composableBuilder(
+    column: $table.contextSnippet,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ReadingDocumentsTableFilterComposer get documentId {
+    final $$ReadingDocumentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.documentId,
+      referencedTable: $db.readingDocuments,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingDocumentsTableFilterComposer(
+            $db: $db,
+            $table: $db.readingDocuments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingNotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadingNotesTable> {
+  $$ReadingNotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get noteType => $composableBuilder(
+    column: $table.noteType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get surfaceText => $composableBuilder(
+    column: $table.surfaceText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get normalizedText => $composableBuilder(
+    column: $table.normalizedText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get meaning => $composableBuilder(
+    column: $table.meaning,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get explanation => $composableBuilder(
+    column: $table.explanation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contextSnippet => $composableBuilder(
+    column: $table.contextSnippet,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ReadingDocumentsTableOrderingComposer get documentId {
+    final $$ReadingDocumentsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.documentId,
+      referencedTable: $db.readingDocuments,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingDocumentsTableOrderingComposer(
+            $db: $db,
+            $table: $db.readingDocuments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingNotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadingNotesTable> {
+  $$ReadingNotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get noteType =>
+      $composableBuilder(column: $table.noteType, builder: (column) => column);
+
+  GeneratedColumn<String> get surfaceText => $composableBuilder(
+    column: $table.surfaceText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get normalizedText => $composableBuilder(
+    column: $table.normalizedText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get meaning =>
+      $composableBuilder(column: $table.meaning, builder: (column) => column);
+
+  GeneratedColumn<String> get explanation => $composableBuilder(
+    column: $table.explanation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contextSnippet => $composableBuilder(
+    column: $table.contextSnippet,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$ReadingDocumentsTableAnnotationComposer get documentId {
+    final $$ReadingDocumentsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.documentId,
+      referencedTable: $db.readingDocuments,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingDocumentsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.readingDocuments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingNotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadingNotesTable,
+          ReadingNote,
+          $$ReadingNotesTableFilterComposer,
+          $$ReadingNotesTableOrderingComposer,
+          $$ReadingNotesTableAnnotationComposer,
+          $$ReadingNotesTableCreateCompanionBuilder,
+          $$ReadingNotesTableUpdateCompanionBuilder,
+          (ReadingNote, $$ReadingNotesTableReferences),
+          ReadingNote,
+          PrefetchHooks Function({bool documentId})
+        > {
+  $$ReadingNotesTableTableManager(_$AppDatabase db, $ReadingNotesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadingNotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadingNotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadingNotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> documentId = const Value.absent(),
+                Value<String> noteType = const Value.absent(),
+                Value<String> surfaceText = const Value.absent(),
+                Value<String?> normalizedText = const Value.absent(),
+                Value<String?> meaning = const Value.absent(),
+                Value<String?> explanation = const Value.absent(),
+                Value<String?> contextSnippet = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+              }) => ReadingNotesCompanion(
+                id: id,
+                documentId: documentId,
+                noteType: noteType,
+                surfaceText: surfaceText,
+                normalizedText: normalizedText,
+                meaning: meaning,
+                explanation: explanation,
+                contextSnippet: contextSnippet,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int documentId,
+                required String noteType,
+                required String surfaceText,
+                Value<String?> normalizedText = const Value.absent(),
+                Value<String?> meaning = const Value.absent(),
+                Value<String?> explanation = const Value.absent(),
+                Value<String?> contextSnippet = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+              }) => ReadingNotesCompanion.insert(
+                id: id,
+                documentId: documentId,
+                noteType: noteType,
+                surfaceText: surfaceText,
+                normalizedText: normalizedText,
+                meaning: meaning,
+                explanation: explanation,
+                contextSnippet: contextSnippet,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ReadingNotesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({documentId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (documentId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.documentId,
+                                referencedTable: $$ReadingNotesTableReferences
+                                    ._documentIdTable(db),
+                                referencedColumn: $$ReadingNotesTableReferences
+                                    ._documentIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ReadingNotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadingNotesTable,
+      ReadingNote,
+      $$ReadingNotesTableFilterComposer,
+      $$ReadingNotesTableOrderingComposer,
+      $$ReadingNotesTableAnnotationComposer,
+      $$ReadingNotesTableCreateCompanionBuilder,
+      $$ReadingNotesTableUpdateCompanionBuilder,
+      (ReadingNote, $$ReadingNotesTableReferences),
+      ReadingNote,
+      PrefetchHooks Function({bool documentId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1993,4 +4011,8 @@ class $AppDatabaseManager {
       $$VocabWordsTableTableManager(_db, _db.vocabWords);
   $$StudySessionsTableTableManager get studySessions =>
       $$StudySessionsTableTableManager(_db, _db.studySessions);
+  $$ReadingDocumentsTableTableManager get readingDocuments =>
+      $$ReadingDocumentsTableTableManager(_db, _db.readingDocuments);
+  $$ReadingNotesTableTableManager get readingNotes =>
+      $$ReadingNotesTableTableManager(_db, _db.readingNotes);
 }

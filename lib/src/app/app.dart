@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/audio/pronunciation_service.dart';
 import '../core/database/app_database.dart';
+import '../features/immersion/application/immersion_repository.dart';
 import '../features/study/application/study_repository.dart';
 import '../features/study/presentation/pages/study_home_page.dart';
 import 'app_theme.dart';
@@ -39,6 +40,7 @@ class AppBootstrap extends StatefulWidget {
 class _AppBootstrapState extends State<AppBootstrap> {
   late final AppDatabase _database;
   late final StudyRepository _repository;
+  late final ImmersionRepository _immersionRepository;
   late final PronunciationService _pronunciationService;
   late final bool _ownsDatabase;
   late final bool _ownsPronunciationService;
@@ -53,6 +55,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
     _ownsPronunciationService = widget.pronunciationService == null;
     _database = widget.database ?? AppDatabase();
     _repository = StudyRepository(_database);
+    _immersionRepository = ImmersionRepository(_database);
     _pronunciationService =
         widget.pronunciationService ?? FlutterTtsPronunciationService();
     _setupFuture = _database.initialize().catchError((error, stackTrace) {
@@ -99,6 +102,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
         return StudyHomePage(
           repository: _repository,
+          immersionRepository: _immersionRepository,
           pronunciationService: _pronunciationService,
         );
       },

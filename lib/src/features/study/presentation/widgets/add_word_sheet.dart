@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
 import '../../../../core/audio/pronunciation_service.dart';
+import '../../../../core/audio/voice_locale.dart';
 import '../../application/study_repository.dart';
 
 class AddWordSheet extends StatefulWidget {
@@ -32,6 +33,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
 
   bool _isSaving = false;
   bool _isSpeaking = false;
+  String _selectedTtsLocale = defaultVoiceLocaleCode;
 
   @override
   void dispose() {
@@ -50,6 +52,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final selectedVoice = voiceLocaleFromCode(_selectedTtsLocale);
 
     return Container(
       decoration: const BoxDecoration(
@@ -111,7 +114,11 @@ class _AddWordSheetState extends State<AddWordSheet> {
                           ? Icons.graphic_eq_rounded
                           : Icons.volume_up_rounded,
                     ),
-                    label: Text(_isSpeaking ? '재생 중...' : '입력한 단어 발음 듣기'),
+                    label: Text(
+                      _isSpeaking
+                          ? '재생 중...'
+                          : '${selectedVoice.displayLabel} 음성으로 듣기',
+                    ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -119,6 +126,27 @@ class _AddWordSheetState extends State<AddWordSheet> {
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedTtsLocale,
+                  decoration: const InputDecoration(
+                    labelText: 'TTS 언어 / 국가',
+                    hintText: '발음에 사용할 음성을 선택하세요',
+                  ),
+                  items: supportedVoiceLocales.map((option) {
+                    return DropdownMenuItem<String>(
+                      value: option.code,
+                      child: Text('${option.displayLabel} (${option.code})'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+
+                    setState(() => _selectedTtsLocale = value);
+                  },
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -271,6 +299,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
       meaningEn: _englishController.text,
       meaningKo: _koreanController.text,
       pronunciation: _pronunciationController.text,
+      ttsLocale: _selectedTtsLocale,
       article: _articleController.text,
       partOfSpeech: _partOfSpeechController.text,
       exampleSentence: _exampleController.text,
@@ -299,7 +328,10 @@ class _AddWordSheetState extends State<AddWordSheet> {
     setState(() => _isSpeaking = true);
 
     try {
-      await widget.pronunciationService.speakGerman(_germanController.text);
+      await widget.pronunciationService.speak(
+        _germanController.text,
+        locale: _selectedTtsLocale,
+      );
     } catch (_) {
       if (!mounted) {
         return;
