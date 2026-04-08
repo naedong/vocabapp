@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/audio/pronunciation_service.dart';
 import '../core/database/app_database.dart';
+import '../core/logging/app_logger.dart';
+import '../features/dictionary/application/dictionary_repository.dart';
 import '../features/immersion/application/immersion_repository.dart';
+import '../features/immersion/application/news_feed_repository.dart';
 import '../features/study/application/study_repository.dart';
 import '../features/study/presentation/pages/study_home_page.dart';
 import 'app_theme.dart';
@@ -40,7 +43,9 @@ class AppBootstrap extends StatefulWidget {
 class _AppBootstrapState extends State<AppBootstrap> {
   late final AppDatabase _database;
   late final StudyRepository _repository;
+  late final DictionaryRepository _dictionaryRepository;
   late final ImmersionRepository _immersionRepository;
+  late final NewsFeedRepository _newsFeedRepository;
   late final PronunciationService _pronunciationService;
   late final bool _ownsDatabase;
   late final bool _ownsPronunciationService;
@@ -55,18 +60,34 @@ class _AppBootstrapState extends State<AppBootstrap> {
     _ownsPronunciationService = widget.pronunciationService == null;
     _database = widget.database ?? AppDatabase();
     _repository = StudyRepository(_database);
+    _dictionaryRepository = DictionaryRepository();
     _immersionRepository = ImmersionRepository(_database);
+    _newsFeedRepository = NewsFeedRepository(database: _database);
     _pronunciationService =
         widget.pronunciationService ?? FlutterTtsPronunciationService();
-    _setupFuture = _database.initialize().catchError((error, stackTrace) {
-      _setupError = error;
-      _setupStackTrace = stackTrace is StackTrace ? stackTrace : null;
-      throw error;
-    });
+    _setupFuture = _database
+        .initialize()
+        .then((_) {
+          AppLogger.info('AppBootstrap', 'Application bootstrap completed.');
+        })
+        .catchError((error, stackTrace) {
+          _setupError = error;
+          _setupStackTrace = stackTrace is StackTrace ? stackTrace : null;
+          AppLogger.error(
+            'AppBootstrap',
+            'Application bootstrap failed.',
+            error: error,
+            stackTrace: _setupStackTrace,
+          );
+          throw error;
+        });
   }
 
   @override
   void dispose() {
+    _immersionRepository.dispose();
+    _newsFeedRepository.dispose();
+    _dictionaryRepository.dispose();
     if (_ownsDatabase) {
       _database.close();
     }
@@ -102,7 +123,9 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
         return StudyHomePage(
           repository: _repository,
+          dictionaryRepository: _dictionaryRepository,
           immersionRepository: _immersionRepository,
+          newsFeedRepository: _newsFeedRepository,
           pronunciationService: _pronunciationService,
         );
       },

@@ -2535,6 +2535,313 @@ class ReadingNotesCompanion extends UpdateCompanion<ReadingNote> {
   }
 }
 
+class $NewsCacheEntriesTable extends NewsCacheEntries
+    with TableInfo<$NewsCacheEntriesTable, NewsCacheEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NewsCacheEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _cacheKeyMeta = const VerificationMeta(
+    'cacheKey',
+  );
+  @override
+  late final GeneratedColumn<String> cacheKey = GeneratedColumn<String>(
+    'cache_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
+    'fetchedAt',
+  );
+  @override
+  late final GeneratedColumn<int> fetchedAt = GeneratedColumn<int>(
+    'fetched_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now().millisecondsSinceEpoch,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, cacheKey, payloadJson, fetchedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'news_cache_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NewsCacheEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('cache_key')) {
+      context.handle(
+        _cacheKeyMeta,
+        cacheKey.isAcceptableOrUnknown(data['cache_key']!, _cacheKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cacheKeyMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(
+        _fetchedAtMeta,
+        fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {cacheKey},
+  ];
+  @override
+  NewsCacheEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NewsCacheEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cacheKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cache_key'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      fetchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at'],
+      )!,
+    );
+  }
+
+  @override
+  $NewsCacheEntriesTable createAlias(String alias) {
+    return $NewsCacheEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class NewsCacheEntry extends DataClass implements Insertable<NewsCacheEntry> {
+  final int id;
+  final String cacheKey;
+  final String payloadJson;
+  final int fetchedAt;
+  const NewsCacheEntry({
+    required this.id,
+    required this.cacheKey,
+    required this.payloadJson,
+    required this.fetchedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['cache_key'] = Variable<String>(cacheKey);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['fetched_at'] = Variable<int>(fetchedAt);
+    return map;
+  }
+
+  NewsCacheEntriesCompanion toCompanion(bool nullToAbsent) {
+    return NewsCacheEntriesCompanion(
+      id: Value(id),
+      cacheKey: Value(cacheKey),
+      payloadJson: Value(payloadJson),
+      fetchedAt: Value(fetchedAt),
+    );
+  }
+
+  factory NewsCacheEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NewsCacheEntry(
+      id: serializer.fromJson<int>(json['id']),
+      cacheKey: serializer.fromJson<String>(json['cacheKey']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      fetchedAt: serializer.fromJson<int>(json['fetchedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cacheKey': serializer.toJson<String>(cacheKey),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'fetchedAt': serializer.toJson<int>(fetchedAt),
+    };
+  }
+
+  NewsCacheEntry copyWith({
+    int? id,
+    String? cacheKey,
+    String? payloadJson,
+    int? fetchedAt,
+  }) => NewsCacheEntry(
+    id: id ?? this.id,
+    cacheKey: cacheKey ?? this.cacheKey,
+    payloadJson: payloadJson ?? this.payloadJson,
+    fetchedAt: fetchedAt ?? this.fetchedAt,
+  );
+  NewsCacheEntry copyWithCompanion(NewsCacheEntriesCompanion data) {
+    return NewsCacheEntry(
+      id: data.id.present ? data.id.value : this.id,
+      cacheKey: data.cacheKey.present ? data.cacheKey.value : this.cacheKey,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NewsCacheEntry(')
+          ..write('id: $id, ')
+          ..write('cacheKey: $cacheKey, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('fetchedAt: $fetchedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cacheKey, payloadJson, fetchedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NewsCacheEntry &&
+          other.id == this.id &&
+          other.cacheKey == this.cacheKey &&
+          other.payloadJson == this.payloadJson &&
+          other.fetchedAt == this.fetchedAt);
+}
+
+class NewsCacheEntriesCompanion extends UpdateCompanion<NewsCacheEntry> {
+  final Value<int> id;
+  final Value<String> cacheKey;
+  final Value<String> payloadJson;
+  final Value<int> fetchedAt;
+  const NewsCacheEntriesCompanion({
+    this.id = const Value.absent(),
+    this.cacheKey = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+  });
+  NewsCacheEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String cacheKey,
+    required String payloadJson,
+    this.fetchedAt = const Value.absent(),
+  }) : cacheKey = Value(cacheKey),
+       payloadJson = Value(payloadJson);
+  static Insertable<NewsCacheEntry> custom({
+    Expression<int>? id,
+    Expression<String>? cacheKey,
+    Expression<String>? payloadJson,
+    Expression<int>? fetchedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cacheKey != null) 'cache_key': cacheKey,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+    });
+  }
+
+  NewsCacheEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? cacheKey,
+    Value<String>? payloadJson,
+    Value<int>? fetchedAt,
+  }) {
+    return NewsCacheEntriesCompanion(
+      id: id ?? this.id,
+      cacheKey: cacheKey ?? this.cacheKey,
+      payloadJson: payloadJson ?? this.payloadJson,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cacheKey.present) {
+      map['cache_key'] = Variable<String>(cacheKey.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<int>(fetchedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NewsCacheEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('cacheKey: $cacheKey, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('fetchedAt: $fetchedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2544,6 +2851,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $ReadingNotesTable readingNotes = $ReadingNotesTable(this);
+  late final $NewsCacheEntriesTable newsCacheEntries = $NewsCacheEntriesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2553,6 +2863,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     studySessions,
     readingDocuments,
     readingNotes,
+    newsCacheEntries,
   ];
 }
 
@@ -4003,6 +4314,189 @@ typedef $$ReadingNotesTableProcessedTableManager =
       ReadingNote,
       PrefetchHooks Function({bool documentId})
     >;
+typedef $$NewsCacheEntriesTableCreateCompanionBuilder =
+    NewsCacheEntriesCompanion Function({
+      Value<int> id,
+      required String cacheKey,
+      required String payloadJson,
+      Value<int> fetchedAt,
+    });
+typedef $$NewsCacheEntriesTableUpdateCompanionBuilder =
+    NewsCacheEntriesCompanion Function({
+      Value<int> id,
+      Value<String> cacheKey,
+      Value<String> payloadJson,
+      Value<int> fetchedAt,
+    });
+
+class $$NewsCacheEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $NewsCacheEntriesTable> {
+  $$NewsCacheEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cacheKey => $composableBuilder(
+    column: $table.cacheKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fetchedAt => $composableBuilder(
+    column: $table.fetchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NewsCacheEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $NewsCacheEntriesTable> {
+  $$NewsCacheEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cacheKey => $composableBuilder(
+    column: $table.cacheKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fetchedAt => $composableBuilder(
+    column: $table.fetchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NewsCacheEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NewsCacheEntriesTable> {
+  $$NewsCacheEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cacheKey =>
+      $composableBuilder(column: $table.cacheKey, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+}
+
+class $$NewsCacheEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NewsCacheEntriesTable,
+          NewsCacheEntry,
+          $$NewsCacheEntriesTableFilterComposer,
+          $$NewsCacheEntriesTableOrderingComposer,
+          $$NewsCacheEntriesTableAnnotationComposer,
+          $$NewsCacheEntriesTableCreateCompanionBuilder,
+          $$NewsCacheEntriesTableUpdateCompanionBuilder,
+          (
+            NewsCacheEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $NewsCacheEntriesTable,
+              NewsCacheEntry
+            >,
+          ),
+          NewsCacheEntry,
+          PrefetchHooks Function()
+        > {
+  $$NewsCacheEntriesTableTableManager(
+    _$AppDatabase db,
+    $NewsCacheEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NewsCacheEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NewsCacheEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NewsCacheEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> cacheKey = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<int> fetchedAt = const Value.absent(),
+              }) => NewsCacheEntriesCompanion(
+                id: id,
+                cacheKey: cacheKey,
+                payloadJson: payloadJson,
+                fetchedAt: fetchedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String cacheKey,
+                required String payloadJson,
+                Value<int> fetchedAt = const Value.absent(),
+              }) => NewsCacheEntriesCompanion.insert(
+                id: id,
+                cacheKey: cacheKey,
+                payloadJson: payloadJson,
+                fetchedAt: fetchedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NewsCacheEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NewsCacheEntriesTable,
+      NewsCacheEntry,
+      $$NewsCacheEntriesTableFilterComposer,
+      $$NewsCacheEntriesTableOrderingComposer,
+      $$NewsCacheEntriesTableAnnotationComposer,
+      $$NewsCacheEntriesTableCreateCompanionBuilder,
+      $$NewsCacheEntriesTableUpdateCompanionBuilder,
+      (
+        NewsCacheEntry,
+        BaseReferences<_$AppDatabase, $NewsCacheEntriesTable, NewsCacheEntry>,
+      ),
+      NewsCacheEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4015,4 +4509,6 @@ class $AppDatabaseManager {
       $$ReadingDocumentsTableTableManager(_db, _db.readingDocuments);
   $$ReadingNotesTableTableManager get readingNotes =>
       $$ReadingNotesTableTableManager(_db, _db.readingNotes);
+  $$NewsCacheEntriesTableTableManager get newsCacheEntries =>
+      $$NewsCacheEntriesTableTableManager(_db, _db.newsCacheEntries);
 }

@@ -6,11 +6,10 @@ import '../../../../app/app_theme.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/audio/voice_locale.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../dictionary/application/dictionary_repository.dart';
 import '../../../immersion/application/immersion_repository.dart';
+import '../../../immersion/application/news_feed_repository.dart';
 import '../../../immersion/data/learning_resource_catalog.dart';
-import '../../../immersion/data/news_api_client.dart';
-import '../../../immersion/domain/news_article.dart';
-import '../../../immersion/presentation/pages/article_reader_page.dart';
 import '../../../immersion/presentation/pages/immersion_hub_page.dart';
 import '../../application/study_repository.dart';
 import '../widgets/add_word_sheet.dart';
@@ -19,12 +18,16 @@ class StudyHomePage extends StatefulWidget {
   const StudyHomePage({
     super.key,
     required this.repository,
+    required this.dictionaryRepository,
     required this.immersionRepository,
+    required this.newsFeedRepository,
     required this.pronunciationService,
   });
 
   final StudyRepository repository;
+  final DictionaryRepository dictionaryRepository;
   final ImmersionRepository immersionRepository;
+  final NewsFeedRepository newsFeedRepository;
   final PronunciationService pronunciationService;
 
   @override
@@ -33,20 +36,10 @@ class StudyHomePage extends StatefulWidget {
 
 class _StudyHomePageState extends State<StudyHomePage> {
   final TextEditingController _searchController = TextEditingController();
-  final NewsApiClient _newsApiClient = NewsApiClient();
 
   int _selectedIndex = 0;
   String _selectedDeck = '전체';
   bool _revealAnswer = false;
-  late Future<List<NewsArticle>> _headlinePreviewFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _headlinePreviewFuture = _newsApiClient.fetchGermanTopHeadlines(
-      pageSize: 3,
-    );
-  }
 
   @override
   void dispose() {
@@ -207,8 +200,6 @@ class _StudyHomePageState extends State<StudyHomePage> {
         return _DashboardPage(
           words: words,
           dueWords: dueWords,
-          headlinePreviewFuture: _headlinePreviewFuture,
-          onOpenArticleStudy: (article) => _openArticleStudy(article, words),
           onBookmarkToggle: widget.repository.toggleBookmark,
           onSpeakWord: _speakWord,
           onSpeakExample: _speakExample,
@@ -268,6 +259,9 @@ class _StudyHomePageState extends State<StudyHomePage> {
       case 3:
         return ImmersionHubPage(
           repository: widget.immersionRepository,
+          dictionaryRepository: widget.dictionaryRepository,
+          studyRepository: widget.repository,
+          newsFeedRepository: widget.newsFeedRepository,
           pronunciationService: widget.pronunciationService,
           knownWords: words,
         );
@@ -284,21 +278,9 @@ class _StudyHomePageState extends State<StudyHomePage> {
       builder: (context) => FractionallySizedBox(
         heightFactor: 0.94,
         child: AddWordSheet(
+          dictionaryRepository: widget.dictionaryRepository,
           repository: widget.repository,
           pronunciationService: widget.pronunciationService,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openArticleStudy(NewsArticle article, List<VocabWord> words) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => ArticleReaderPage(
-          article: article,
-          repository: widget.immersionRepository,
-          pronunciationService: widget.pronunciationService,
-          knownWords: List<VocabWord>.unmodifiable(words),
         ),
       ),
     );
@@ -383,8 +365,6 @@ class _DashboardPage extends StatelessWidget {
   const _DashboardPage({
     required this.words,
     required this.dueWords,
-    required this.headlinePreviewFuture,
-    required this.onOpenArticleStudy,
     required this.onBookmarkToggle,
     required this.onSpeakWord,
     required this.onSpeakExample,
@@ -392,8 +372,6 @@ class _DashboardPage extends StatelessWidget {
 
   final List<VocabWord> words;
   final List<VocabWord> dueWords;
-  final Future<List<NewsArticle>> headlinePreviewFuture;
-  final Future<void> Function(NewsArticle article) onOpenArticleStudy;
   final Future<void> Function(VocabWord word) onBookmarkToggle;
   final Future<void> Function(VocabWord word) onSpeakWord;
   final Future<void> Function(VocabWord word) onSpeakExample;
@@ -449,11 +427,6 @@ class _DashboardPage extends StatelessWidget {
               color: AppColors.gold,
             ),
           ],
-        ),
-        const SizedBox(height: 26),
-        _HeadlinePreviewSection(
-          future: headlinePreviewFuture,
-          onOpenArticleStudy: onOpenArticleStudy,
         ),
         const SizedBox(height: 26),
         const _SectionTitle(
@@ -1162,133 +1135,6 @@ class _MetricTile extends StatelessWidget {
             Text(hint, style: const TextStyle(color: Color(0xFF617180))),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HeadlinePreviewSection extends StatelessWidget {
-  const _HeadlinePreviewSection({
-    required this.future,
-    required this.onOpenArticleStudy,
-  });
-
-  final Future<List<NewsArticle>> future;
-  final Future<void> Function(NewsArticle article) onOpenArticleStudy;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<NewsArticle>>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-            ),
-            child: const Row(
-              children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2.4),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '독일 뉴스 헤드라인을 미리 불러오는 중입니다.',
-                    style: TextStyle(
-                      color: Color(0xFF60707F),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final headlines = snapshot.data ?? const <NewsArticle>[];
-        if (headlines.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _SectionTitle(
-              title: '미리 읽기',
-              subtitle: '앱을 켜자마자 바로 읽기 시작할 수 있도록 최신 기사 몇 개를 가져왔습니다.',
-            ),
-            const SizedBox(height: 14),
-            ...headlines.map(
-              (article) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _HeadlinePreviewTile(
-                  article: article,
-                  onPressed: () => onOpenArticleStudy(article),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _HeadlinePreviewTile extends StatelessWidget {
-  const _HeadlinePreviewTile({required this.article, required this.onPressed});
-
-  final NewsArticle article;
-  final Future<void> Function() onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            article.sourceName,
-            style: const TextStyle(
-              color: AppColors.teal,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            article.title,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            article.description,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
-          ),
-          const SizedBox(height: 14),
-          FilledButton.tonalIcon(
-            onPressed: onPressed,
-            icon: const Icon(Icons.menu_book_rounded),
-            label: const Text('읽기 시작'),
-          ),
-        ],
       ),
     );
   }

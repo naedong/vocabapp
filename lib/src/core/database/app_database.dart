@@ -70,14 +70,33 @@ class ReadingNotes extends Table {
       integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
 }
 
+class NewsCacheEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get cacheKey => text()();
+  TextColumn get payloadJson => text()();
+  IntColumn get fetchedAt =>
+      integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {cacheKey},
+  ];
+}
+
 @DriftDatabase(
-  tables: [VocabWords, StudySessions, ReadingDocuments, ReadingNotes],
+  tables: [
+    VocabWords,
+    StudySessions,
+    ReadingDocuments,
+    ReadingNotes,
+    NewsCacheEntries,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -89,6 +108,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.createTable(readingDocuments);
         await m.createTable(readingNotes);
+      }
+      if (from < 4) {
+        await m.createTable(newsCacheEntries);
       }
     },
     beforeOpen: (details) async {
@@ -105,6 +127,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> initialize() async {
     await _ensureImmersionTables();
+    await _ensureNewsCacheTable();
     await ensureSeedData();
   }
 
@@ -220,11 +243,10 @@ class AppDatabase extends _$AppDatabase {
       readingDocuments,
     )..where((table) => table.sourceUrl.equals(sourceUrl))).getSingleOrNull();
     final now = DateTime.now().millisecondsSinceEpoch;
-    final initialScript = _initialReadingScript(
-      title: sourceTitle,
-      description: description,
-      scriptText: scriptText,
-    );
+    final preparedScript = scriptText?.trim();
+    final initialScript = preparedScript == null || preparedScript.isEmpty
+        ? _initialReadingScript(title: sourceTitle, description: description)
+        : preparedScript;
 
     if (existing == null) {
       final id = await into(readingDocuments).insert(
@@ -286,6 +308,12 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<ReadingDocument> getReadingDocumentById(int documentId) {
+    return (select(
+      readingDocuments,
+    )..where((table) => table.id.equals(documentId))).getSingle();
+  }
+
   Future<bool> toggleReadingNote({
     required int documentId,
     required String noteType,
@@ -332,6 +360,40 @@ class AppDatabase extends _$AppDatabase {
     return true;
   }
 
+  Future<NewsCacheEntry?> getNewsCacheEntry(String cacheKey) {
+    return (select(
+      newsCacheEntries,
+    )..where((table) => table.cacheKey.equals(cacheKey))).getSingleOrNull();
+  }
+
+  Future<void> saveNewsCacheEntry({
+    required String cacheKey,
+    required String payloadJson,
+  }) async {
+    final existing = await getNewsCacheEntry(cacheKey);
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (existing == null) {
+      await into(newsCacheEntries).insert(
+        NewsCacheEntriesCompanion.insert(
+          cacheKey: cacheKey,
+          payloadJson: payloadJson,
+          fetchedAt: Value(now),
+        ),
+      );
+      return;
+    }
+
+    await (update(
+      newsCacheEntries,
+    )..where((table) => table.id.equals(existing.id))).write(
+      NewsCacheEntriesCompanion(
+        payloadJson: Value(payloadJson),
+        fetchedAt: Value(now),
+      ),
+    );
+  }
+
   Future<void> _ensureImmersionTables() async {
     await customStatement('''
 CREATE TABLE IF NOT EXISTS reading_documents (
@@ -358,6 +420,17 @@ CREATE TABLE IF NOT EXISTS reading_notes (
   explanation TEXT NULL,
   context_snippet TEXT NULL,
   created_at INTEGER NOT NULL
+)
+''');
+  }
+
+  Future<void> _ensureNewsCacheTable() async {
+    await customStatement('''
+CREATE TABLE IF NOT EXISTS news_cache_entries (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  cache_key TEXT NOT NULL UNIQUE,
+  payload_json TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
 )
 ''');
   }
@@ -466,13 +539,11 @@ String? _nullableText(String? value) {
 String _initialReadingScript({
   required String title,
   String? description,
-  String? scriptText,
 }) {
   final parts = <String>[
     title.trim(),
     if (description != null && description.trim().isNotEmpty)
       description.trim(),
-    if (scriptText != null && scriptText.trim().isNotEmpty) scriptText.trim(),
   ];
 
   return parts.join('\n\n');
