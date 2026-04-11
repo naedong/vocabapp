@@ -121,6 +121,17 @@ class $VocabWordsTable extends VocabWords
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _grammarNoteMeta = const VerificationMeta(
+    'grammarNote',
+  );
+  @override
+  late final GeneratedColumn<String> grammarNote = GeneratedColumn<String>(
+    'grammar_note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _deckMeta = const VerificationMeta('deck');
   @override
   late final GeneratedColumn<String> deck = GeneratedColumn<String>(
@@ -204,6 +215,32 @@ class $VocabWordsTable extends VocabWords
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isDailyRecommendationMeta =
+      const VerificationMeta('isDailyRecommendation');
+  @override
+  late final GeneratedColumn<bool> isDailyRecommendation =
+      GeneratedColumn<bool>(
+        'is_daily_recommendation',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("is_daily_recommendation" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _dailyRecommendationDateKeyMeta =
+      const VerificationMeta('dailyRecommendationDateKey');
+  @override
+  late final GeneratedColumn<String> dailyRecommendationDateKey =
+      GeneratedColumn<String>(
+        'daily_recommendation_date_key',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -228,6 +265,7 @@ class $VocabWordsTable extends VocabWords
     ttsLocale,
     exampleSentence,
     exampleTranslation,
+    grammarNote,
     deck,
     difficulty,
     mastery,
@@ -235,6 +273,8 @@ class $VocabWordsTable extends VocabWords
     timesReviewed,
     nextReviewAt,
     lastReviewedAt,
+    isDailyRecommendation,
+    dailyRecommendationDateKey,
     createdAt,
   ];
   @override
@@ -330,6 +370,15 @@ class $VocabWordsTable extends VocabWords
     } else if (isInserting) {
       context.missing(_exampleTranslationMeta);
     }
+    if (data.containsKey('grammar_note')) {
+      context.handle(
+        _grammarNoteMeta,
+        grammarNote.isAcceptableOrUnknown(
+          data['grammar_note']!,
+          _grammarNoteMeta,
+        ),
+      );
+    }
     if (data.containsKey('deck')) {
       context.handle(
         _deckMeta,
@@ -381,6 +430,24 @@ class $VocabWordsTable extends VocabWords
         lastReviewedAt.isAcceptableOrUnknown(
           data['last_reviewed_at']!,
           _lastReviewedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_daily_recommendation')) {
+      context.handle(
+        _isDailyRecommendationMeta,
+        isDailyRecommendation.isAcceptableOrUnknown(
+          data['is_daily_recommendation']!,
+          _isDailyRecommendationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('daily_recommendation_date_key')) {
+      context.handle(
+        _dailyRecommendationDateKeyMeta,
+        dailyRecommendationDateKey.isAcceptableOrUnknown(
+          data['daily_recommendation_date_key']!,
+          _dailyRecommendationDateKeyMeta,
         ),
       );
     }
@@ -439,6 +506,10 @@ class $VocabWordsTable extends VocabWords
         DriftSqlType.string,
         data['${effectivePrefix}example_translation'],
       )!,
+      grammarNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}grammar_note'],
+      ),
       deck: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}deck'],
@@ -467,6 +538,14 @@ class $VocabWordsTable extends VocabWords
         DriftSqlType.int,
         data['${effectivePrefix}last_reviewed_at'],
       ),
+      isDailyRecommendation: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_daily_recommendation'],
+      )!,
+      dailyRecommendationDateKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}daily_recommendation_date_key'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
@@ -491,6 +570,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   final String ttsLocale;
   final String exampleSentence;
   final String exampleTranslation;
+  final String? grammarNote;
   final String deck;
   final int difficulty;
   final int mastery;
@@ -498,6 +578,8 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   final int timesReviewed;
   final int? nextReviewAt;
   final int? lastReviewedAt;
+  final bool isDailyRecommendation;
+  final String? dailyRecommendationDateKey;
   final int createdAt;
   const VocabWord({
     required this.id,
@@ -510,6 +592,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     required this.ttsLocale,
     required this.exampleSentence,
     required this.exampleTranslation,
+    this.grammarNote,
     required this.deck,
     required this.difficulty,
     required this.mastery,
@@ -517,6 +600,8 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     required this.timesReviewed,
     this.nextReviewAt,
     this.lastReviewedAt,
+    required this.isDailyRecommendation,
+    this.dailyRecommendationDateKey,
     required this.createdAt,
   });
   @override
@@ -534,6 +619,9 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     map['tts_locale'] = Variable<String>(ttsLocale);
     map['example_sentence'] = Variable<String>(exampleSentence);
     map['example_translation'] = Variable<String>(exampleTranslation);
+    if (!nullToAbsent || grammarNote != null) {
+      map['grammar_note'] = Variable<String>(grammarNote);
+    }
     map['deck'] = Variable<String>(deck);
     map['difficulty'] = Variable<int>(difficulty);
     map['mastery'] = Variable<int>(mastery);
@@ -544,6 +632,12 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     }
     if (!nullToAbsent || lastReviewedAt != null) {
       map['last_reviewed_at'] = Variable<int>(lastReviewedAt);
+    }
+    map['is_daily_recommendation'] = Variable<bool>(isDailyRecommendation);
+    if (!nullToAbsent || dailyRecommendationDateKey != null) {
+      map['daily_recommendation_date_key'] = Variable<String>(
+        dailyRecommendationDateKey,
+      );
     }
     map['created_at'] = Variable<int>(createdAt);
     return map;
@@ -563,6 +657,9 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       ttsLocale: Value(ttsLocale),
       exampleSentence: Value(exampleSentence),
       exampleTranslation: Value(exampleTranslation),
+      grammarNote: grammarNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(grammarNote),
       deck: Value(deck),
       difficulty: Value(difficulty),
       mastery: Value(mastery),
@@ -574,6 +671,11 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       lastReviewedAt: lastReviewedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastReviewedAt),
+      isDailyRecommendation: Value(isDailyRecommendation),
+      dailyRecommendationDateKey:
+          dailyRecommendationDateKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dailyRecommendationDateKey),
       createdAt: Value(createdAt),
     );
   }
@@ -596,6 +698,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       exampleTranslation: serializer.fromJson<String>(
         json['exampleTranslation'],
       ),
+      grammarNote: serializer.fromJson<String?>(json['grammarNote']),
       deck: serializer.fromJson<String>(json['deck']),
       difficulty: serializer.fromJson<int>(json['difficulty']),
       mastery: serializer.fromJson<int>(json['mastery']),
@@ -603,6 +706,12 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       timesReviewed: serializer.fromJson<int>(json['timesReviewed']),
       nextReviewAt: serializer.fromJson<int?>(json['nextReviewAt']),
       lastReviewedAt: serializer.fromJson<int?>(json['lastReviewedAt']),
+      isDailyRecommendation: serializer.fromJson<bool>(
+        json['isDailyRecommendation'],
+      ),
+      dailyRecommendationDateKey: serializer.fromJson<String?>(
+        json['dailyRecommendationDateKey'],
+      ),
       createdAt: serializer.fromJson<int>(json['createdAt']),
     );
   }
@@ -620,6 +729,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       'ttsLocale': serializer.toJson<String>(ttsLocale),
       'exampleSentence': serializer.toJson<String>(exampleSentence),
       'exampleTranslation': serializer.toJson<String>(exampleTranslation),
+      'grammarNote': serializer.toJson<String?>(grammarNote),
       'deck': serializer.toJson<String>(deck),
       'difficulty': serializer.toJson<int>(difficulty),
       'mastery': serializer.toJson<int>(mastery),
@@ -627,6 +737,10 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       'timesReviewed': serializer.toJson<int>(timesReviewed),
       'nextReviewAt': serializer.toJson<int?>(nextReviewAt),
       'lastReviewedAt': serializer.toJson<int?>(lastReviewedAt),
+      'isDailyRecommendation': serializer.toJson<bool>(isDailyRecommendation),
+      'dailyRecommendationDateKey': serializer.toJson<String?>(
+        dailyRecommendationDateKey,
+      ),
       'createdAt': serializer.toJson<int>(createdAt),
     };
   }
@@ -642,6 +756,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     String? ttsLocale,
     String? exampleSentence,
     String? exampleTranslation,
+    Value<String?> grammarNote = const Value.absent(),
     String? deck,
     int? difficulty,
     int? mastery,
@@ -649,6 +764,8 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     int? timesReviewed,
     Value<int?> nextReviewAt = const Value.absent(),
     Value<int?> lastReviewedAt = const Value.absent(),
+    bool? isDailyRecommendation,
+    Value<String?> dailyRecommendationDateKey = const Value.absent(),
     int? createdAt,
   }) => VocabWord(
     id: id ?? this.id,
@@ -661,6 +778,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     ttsLocale: ttsLocale ?? this.ttsLocale,
     exampleSentence: exampleSentence ?? this.exampleSentence,
     exampleTranslation: exampleTranslation ?? this.exampleTranslation,
+    grammarNote: grammarNote.present ? grammarNote.value : this.grammarNote,
     deck: deck ?? this.deck,
     difficulty: difficulty ?? this.difficulty,
     mastery: mastery ?? this.mastery,
@@ -670,6 +788,10 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     lastReviewedAt: lastReviewedAt.present
         ? lastReviewedAt.value
         : this.lastReviewedAt,
+    isDailyRecommendation: isDailyRecommendation ?? this.isDailyRecommendation,
+    dailyRecommendationDateKey: dailyRecommendationDateKey.present
+        ? dailyRecommendationDateKey.value
+        : this.dailyRecommendationDateKey,
     createdAt: createdAt ?? this.createdAt,
   );
   VocabWord copyWithCompanion(VocabWordsCompanion data) {
@@ -692,6 +814,9 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       exampleTranslation: data.exampleTranslation.present
           ? data.exampleTranslation.value
           : this.exampleTranslation,
+      grammarNote: data.grammarNote.present
+          ? data.grammarNote.value
+          : this.grammarNote,
       deck: data.deck.present ? data.deck.value : this.deck,
       difficulty: data.difficulty.present
           ? data.difficulty.value
@@ -709,6 +834,12 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       lastReviewedAt: data.lastReviewedAt.present
           ? data.lastReviewedAt.value
           : this.lastReviewedAt,
+      isDailyRecommendation: data.isDailyRecommendation.present
+          ? data.isDailyRecommendation.value
+          : this.isDailyRecommendation,
+      dailyRecommendationDateKey: data.dailyRecommendationDateKey.present
+          ? data.dailyRecommendationDateKey.value
+          : this.dailyRecommendationDateKey,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -726,6 +857,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
           ..write('ttsLocale: $ttsLocale, ')
           ..write('exampleSentence: $exampleSentence, ')
           ..write('exampleTranslation: $exampleTranslation, ')
+          ..write('grammarNote: $grammarNote, ')
           ..write('deck: $deck, ')
           ..write('difficulty: $difficulty, ')
           ..write('mastery: $mastery, ')
@@ -733,13 +865,15 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
           ..write('timesReviewed: $timesReviewed, ')
           ..write('nextReviewAt: $nextReviewAt, ')
           ..write('lastReviewedAt: $lastReviewedAt, ')
+          ..write('isDailyRecommendation: $isDailyRecommendation, ')
+          ..write('dailyRecommendationDateKey: $dailyRecommendationDateKey, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     german,
     article,
@@ -750,6 +884,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     ttsLocale,
     exampleSentence,
     exampleTranslation,
+    grammarNote,
     deck,
     difficulty,
     mastery,
@@ -757,8 +892,10 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     timesReviewed,
     nextReviewAt,
     lastReviewedAt,
+    isDailyRecommendation,
+    dailyRecommendationDateKey,
     createdAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -773,6 +910,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
           other.ttsLocale == this.ttsLocale &&
           other.exampleSentence == this.exampleSentence &&
           other.exampleTranslation == this.exampleTranslation &&
+          other.grammarNote == this.grammarNote &&
           other.deck == this.deck &&
           other.difficulty == this.difficulty &&
           other.mastery == this.mastery &&
@@ -780,6 +918,8 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
           other.timesReviewed == this.timesReviewed &&
           other.nextReviewAt == this.nextReviewAt &&
           other.lastReviewedAt == this.lastReviewedAt &&
+          other.isDailyRecommendation == this.isDailyRecommendation &&
+          other.dailyRecommendationDateKey == this.dailyRecommendationDateKey &&
           other.createdAt == this.createdAt);
 }
 
@@ -794,6 +934,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   final Value<String> ttsLocale;
   final Value<String> exampleSentence;
   final Value<String> exampleTranslation;
+  final Value<String?> grammarNote;
   final Value<String> deck;
   final Value<int> difficulty;
   final Value<int> mastery;
@@ -801,6 +942,8 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   final Value<int> timesReviewed;
   final Value<int?> nextReviewAt;
   final Value<int?> lastReviewedAt;
+  final Value<bool> isDailyRecommendation;
+  final Value<String?> dailyRecommendationDateKey;
   final Value<int> createdAt;
   const VocabWordsCompanion({
     this.id = const Value.absent(),
@@ -813,6 +956,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     this.ttsLocale = const Value.absent(),
     this.exampleSentence = const Value.absent(),
     this.exampleTranslation = const Value.absent(),
+    this.grammarNote = const Value.absent(),
     this.deck = const Value.absent(),
     this.difficulty = const Value.absent(),
     this.mastery = const Value.absent(),
@@ -820,6 +964,8 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     this.timesReviewed = const Value.absent(),
     this.nextReviewAt = const Value.absent(),
     this.lastReviewedAt = const Value.absent(),
+    this.isDailyRecommendation = const Value.absent(),
+    this.dailyRecommendationDateKey = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   VocabWordsCompanion.insert({
@@ -833,6 +979,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     this.ttsLocale = const Value.absent(),
     required String exampleSentence,
     required String exampleTranslation,
+    this.grammarNote = const Value.absent(),
     this.deck = const Value.absent(),
     this.difficulty = const Value.absent(),
     this.mastery = const Value.absent(),
@@ -840,6 +987,8 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     this.timesReviewed = const Value.absent(),
     this.nextReviewAt = const Value.absent(),
     this.lastReviewedAt = const Value.absent(),
+    this.isDailyRecommendation = const Value.absent(),
+    this.dailyRecommendationDateKey = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : german = Value(german),
        meaningEn = Value(meaningEn),
@@ -858,6 +1007,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     Expression<String>? ttsLocale,
     Expression<String>? exampleSentence,
     Expression<String>? exampleTranslation,
+    Expression<String>? grammarNote,
     Expression<String>? deck,
     Expression<int>? difficulty,
     Expression<int>? mastery,
@@ -865,6 +1015,8 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     Expression<int>? timesReviewed,
     Expression<int>? nextReviewAt,
     Expression<int>? lastReviewedAt,
+    Expression<bool>? isDailyRecommendation,
+    Expression<String>? dailyRecommendationDateKey,
     Expression<int>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -878,6 +1030,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
       if (ttsLocale != null) 'tts_locale': ttsLocale,
       if (exampleSentence != null) 'example_sentence': exampleSentence,
       if (exampleTranslation != null) 'example_translation': exampleTranslation,
+      if (grammarNote != null) 'grammar_note': grammarNote,
       if (deck != null) 'deck': deck,
       if (difficulty != null) 'difficulty': difficulty,
       if (mastery != null) 'mastery': mastery,
@@ -885,6 +1038,10 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
       if (timesReviewed != null) 'times_reviewed': timesReviewed,
       if (nextReviewAt != null) 'next_review_at': nextReviewAt,
       if (lastReviewedAt != null) 'last_reviewed_at': lastReviewedAt,
+      if (isDailyRecommendation != null)
+        'is_daily_recommendation': isDailyRecommendation,
+      if (dailyRecommendationDateKey != null)
+        'daily_recommendation_date_key': dailyRecommendationDateKey,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -900,6 +1057,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     Value<String>? ttsLocale,
     Value<String>? exampleSentence,
     Value<String>? exampleTranslation,
+    Value<String?>? grammarNote,
     Value<String>? deck,
     Value<int>? difficulty,
     Value<int>? mastery,
@@ -907,6 +1065,8 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     Value<int>? timesReviewed,
     Value<int?>? nextReviewAt,
     Value<int?>? lastReviewedAt,
+    Value<bool>? isDailyRecommendation,
+    Value<String?>? dailyRecommendationDateKey,
     Value<int>? createdAt,
   }) {
     return VocabWordsCompanion(
@@ -920,6 +1080,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
       ttsLocale: ttsLocale ?? this.ttsLocale,
       exampleSentence: exampleSentence ?? this.exampleSentence,
       exampleTranslation: exampleTranslation ?? this.exampleTranslation,
+      grammarNote: grammarNote ?? this.grammarNote,
       deck: deck ?? this.deck,
       difficulty: difficulty ?? this.difficulty,
       mastery: mastery ?? this.mastery,
@@ -927,6 +1088,10 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
       timesReviewed: timesReviewed ?? this.timesReviewed,
       nextReviewAt: nextReviewAt ?? this.nextReviewAt,
       lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+      isDailyRecommendation:
+          isDailyRecommendation ?? this.isDailyRecommendation,
+      dailyRecommendationDateKey:
+          dailyRecommendationDateKey ?? this.dailyRecommendationDateKey,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -964,6 +1129,9 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     if (exampleTranslation.present) {
       map['example_translation'] = Variable<String>(exampleTranslation.value);
     }
+    if (grammarNote.present) {
+      map['grammar_note'] = Variable<String>(grammarNote.value);
+    }
     if (deck.present) {
       map['deck'] = Variable<String>(deck.value);
     }
@@ -985,6 +1153,16 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     if (lastReviewedAt.present) {
       map['last_reviewed_at'] = Variable<int>(lastReviewedAt.value);
     }
+    if (isDailyRecommendation.present) {
+      map['is_daily_recommendation'] = Variable<bool>(
+        isDailyRecommendation.value,
+      );
+    }
+    if (dailyRecommendationDateKey.present) {
+      map['daily_recommendation_date_key'] = Variable<String>(
+        dailyRecommendationDateKey.value,
+      );
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
@@ -1004,6 +1182,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
           ..write('ttsLocale: $ttsLocale, ')
           ..write('exampleSentence: $exampleSentence, ')
           ..write('exampleTranslation: $exampleTranslation, ')
+          ..write('grammarNote: $grammarNote, ')
           ..write('deck: $deck, ')
           ..write('difficulty: $difficulty, ')
           ..write('mastery: $mastery, ')
@@ -1011,6 +1190,8 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
           ..write('timesReviewed: $timesReviewed, ')
           ..write('nextReviewAt: $nextReviewAt, ')
           ..write('lastReviewedAt: $lastReviewedAt, ')
+          ..write('isDailyRecommendation: $isDailyRecommendation, ')
+          ..write('dailyRecommendationDateKey: $dailyRecommendationDateKey, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2879,6 +3060,7 @@ typedef $$VocabWordsTableCreateCompanionBuilder =
       Value<String> ttsLocale,
       required String exampleSentence,
       required String exampleTranslation,
+      Value<String?> grammarNote,
       Value<String> deck,
       Value<int> difficulty,
       Value<int> mastery,
@@ -2886,6 +3068,8 @@ typedef $$VocabWordsTableCreateCompanionBuilder =
       Value<int> timesReviewed,
       Value<int?> nextReviewAt,
       Value<int?> lastReviewedAt,
+      Value<bool> isDailyRecommendation,
+      Value<String?> dailyRecommendationDateKey,
       Value<int> createdAt,
     });
 typedef $$VocabWordsTableUpdateCompanionBuilder =
@@ -2900,6 +3084,7 @@ typedef $$VocabWordsTableUpdateCompanionBuilder =
       Value<String> ttsLocale,
       Value<String> exampleSentence,
       Value<String> exampleTranslation,
+      Value<String?> grammarNote,
       Value<String> deck,
       Value<int> difficulty,
       Value<int> mastery,
@@ -2907,6 +3092,8 @@ typedef $$VocabWordsTableUpdateCompanionBuilder =
       Value<int> timesReviewed,
       Value<int?> nextReviewAt,
       Value<int?> lastReviewedAt,
+      Value<bool> isDailyRecommendation,
+      Value<String?> dailyRecommendationDateKey,
       Value<int> createdAt,
     });
 
@@ -2969,6 +3156,11 @@ class $$VocabWordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get grammarNote => $composableBuilder(
+    column: $table.grammarNote,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get deck => $composableBuilder(
     column: $table.deck,
     builder: (column) => ColumnFilters(column),
@@ -3001,6 +3193,16 @@ class $$VocabWordsTableFilterComposer
 
   ColumnFilters<int> get lastReviewedAt => $composableBuilder(
     column: $table.lastReviewedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDailyRecommendation => $composableBuilder(
+    column: $table.isDailyRecommendation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dailyRecommendationDateKey => $composableBuilder(
+    column: $table.dailyRecommendationDateKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3069,6 +3271,11 @@ class $$VocabWordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get grammarNote => $composableBuilder(
+    column: $table.grammarNote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get deck => $composableBuilder(
     column: $table.deck,
     builder: (column) => ColumnOrderings(column),
@@ -3101,6 +3308,16 @@ class $$VocabWordsTableOrderingComposer
 
   ColumnOrderings<int> get lastReviewedAt => $composableBuilder(
     column: $table.lastReviewedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDailyRecommendation => $composableBuilder(
+    column: $table.isDailyRecommendation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get dailyRecommendationDateKey => $composableBuilder(
+    column: $table.dailyRecommendationDateKey,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3157,6 +3374,11 @@ class $$VocabWordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get grammarNote => $composableBuilder(
+    column: $table.grammarNote,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get deck =>
       $composableBuilder(column: $table.deck, builder: (column) => column);
 
@@ -3185,6 +3407,16 @@ class $$VocabWordsTableAnnotationComposer
 
   GeneratedColumn<int> get lastReviewedAt => $composableBuilder(
     column: $table.lastReviewedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDailyRecommendation => $composableBuilder(
+    column: $table.isDailyRecommendation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dailyRecommendationDateKey => $composableBuilder(
+    column: $table.dailyRecommendationDateKey,
     builder: (column) => column,
   );
 
@@ -3233,6 +3465,7 @@ class $$VocabWordsTableTableManager
                 Value<String> ttsLocale = const Value.absent(),
                 Value<String> exampleSentence = const Value.absent(),
                 Value<String> exampleTranslation = const Value.absent(),
+                Value<String?> grammarNote = const Value.absent(),
                 Value<String> deck = const Value.absent(),
                 Value<int> difficulty = const Value.absent(),
                 Value<int> mastery = const Value.absent(),
@@ -3240,6 +3473,9 @@ class $$VocabWordsTableTableManager
                 Value<int> timesReviewed = const Value.absent(),
                 Value<int?> nextReviewAt = const Value.absent(),
                 Value<int?> lastReviewedAt = const Value.absent(),
+                Value<bool> isDailyRecommendation = const Value.absent(),
+                Value<String?> dailyRecommendationDateKey =
+                    const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
               }) => VocabWordsCompanion(
                 id: id,
@@ -3252,6 +3488,7 @@ class $$VocabWordsTableTableManager
                 ttsLocale: ttsLocale,
                 exampleSentence: exampleSentence,
                 exampleTranslation: exampleTranslation,
+                grammarNote: grammarNote,
                 deck: deck,
                 difficulty: difficulty,
                 mastery: mastery,
@@ -3259,6 +3496,8 @@ class $$VocabWordsTableTableManager
                 timesReviewed: timesReviewed,
                 nextReviewAt: nextReviewAt,
                 lastReviewedAt: lastReviewedAt,
+                isDailyRecommendation: isDailyRecommendation,
+                dailyRecommendationDateKey: dailyRecommendationDateKey,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -3273,6 +3512,7 @@ class $$VocabWordsTableTableManager
                 Value<String> ttsLocale = const Value.absent(),
                 required String exampleSentence,
                 required String exampleTranslation,
+                Value<String?> grammarNote = const Value.absent(),
                 Value<String> deck = const Value.absent(),
                 Value<int> difficulty = const Value.absent(),
                 Value<int> mastery = const Value.absent(),
@@ -3280,6 +3520,9 @@ class $$VocabWordsTableTableManager
                 Value<int> timesReviewed = const Value.absent(),
                 Value<int?> nextReviewAt = const Value.absent(),
                 Value<int?> lastReviewedAt = const Value.absent(),
+                Value<bool> isDailyRecommendation = const Value.absent(),
+                Value<String?> dailyRecommendationDateKey =
+                    const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
               }) => VocabWordsCompanion.insert(
                 id: id,
@@ -3292,6 +3535,7 @@ class $$VocabWordsTableTableManager
                 ttsLocale: ttsLocale,
                 exampleSentence: exampleSentence,
                 exampleTranslation: exampleTranslation,
+                grammarNote: grammarNote,
                 deck: deck,
                 difficulty: difficulty,
                 mastery: mastery,
@@ -3299,6 +3543,8 @@ class $$VocabWordsTableTableManager
                 timesReviewed: timesReviewed,
                 nextReviewAt: nextReviewAt,
                 lastReviewedAt: lastReviewedAt,
+                isDailyRecommendation: isDailyRecommendation,
+                dailyRecommendationDateKey: dailyRecommendationDateKey,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

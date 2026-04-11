@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../../app/responsive_layout.dart';
+import '../../../../core/audio/pronunciation_assessment_service.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/audio/voice_locale.dart';
 import '../../../../core/database/app_database.dart';
@@ -12,7 +14,9 @@ import '../../../immersion/application/news_feed_repository.dart';
 import '../../../immersion/data/learning_resource_catalog.dart';
 import '../../../immersion/presentation/pages/immersion_hub_page.dart';
 import '../../application/study_repository.dart';
+import '../../application/study_coach_service.dart';
 import '../widgets/add_word_sheet.dart';
+import '../widgets/word_coach_sheet.dart';
 
 class StudyHomePage extends StatefulWidget {
   const StudyHomePage({
@@ -22,6 +26,8 @@ class StudyHomePage extends StatefulWidget {
     required this.immersionRepository,
     required this.newsFeedRepository,
     required this.pronunciationService,
+    required this.pronunciationAssessmentService,
+    required this.studyCoachService,
   });
 
   final StudyRepository repository;
@@ -29,6 +35,8 @@ class StudyHomePage extends StatefulWidget {
   final ImmersionRepository immersionRepository;
   final NewsFeedRepository newsFeedRepository;
   final PronunciationService pronunciationService;
+  final PronunciationAssessmentService pronunciationAssessmentService;
+  final StudyCoachService studyCoachService;
 
   @override
   State<StudyHomePage> createState() => _StudyHomePageState();
@@ -55,15 +63,17 @@ class _StudyHomePageState extends State<StudyHomePage> {
         final words = List<VocabWord>.from(snapshot.data ?? const <VocabWord>[])
           ..sort(_sortWords);
         final dueWords = _dueWords(words);
+        final todayRecommendedWords = _todayRecommendedWords(words);
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 1080;
+            final layout = ResponsiveLayout.fromConstraints(constraints);
             final shell = _buildShell(
               context,
               words: words,
               dueWords: dueWords,
-              isWide: isWide,
+              todayRecommendedWords: todayRecommendedWords,
+              layout: layout,
             );
 
             return DecoratedBox(
@@ -90,7 +100,8 @@ class _StudyHomePageState extends State<StudyHomePage> {
     BuildContext context, {
     required List<VocabWord> words,
     required List<VocabWord> dueWords,
-    required bool isWide,
+    required List<VocabWord> todayRecommendedWords,
+    required ResponsiveLayout layout,
   }) {
     final titles = [
       'Deutsch Flow',
@@ -106,15 +117,32 @@ class _StudyHomePageState extends State<StudyHomePage> {
       '뉴스, 영상, 문법 콘텐츠를 보며 실제 독일어가 쓰이는 맥락을 함께 익혀보세요.',
       '최근 학습량과 덱별 숙련도를 보며 다음 루틴을 정리해 보세요.',
     ];
+    final useRail = layout.isExpanded;
+    final mainPage = _buildPage(
+      words: words,
+      dueWords: dueWords,
+      todayRecommendedWords: todayRecommendedWords,
+    );
+    final mainContent = _ContentCard(
+      title: titles[_selectedIndex],
+      subtitle: subtitles[_selectedIndex],
+      badge: _badgeLabel(wordCount: words.length, dueCount: dueWords.length),
+      child: mainPage,
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddWordSheet,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('단어 추가'),
-      ),
-      bottomNavigationBar: isWide
+      floatingActionButton: layout.isCompact
+          ? FloatingActionButton(
+              onPressed: _openAddWordSheet,
+              child: const Icon(Icons.add_rounded),
+            )
+          : FloatingActionButton.extended(
+              onPressed: _openAddWordSheet,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('단어 추가'),
+            ),
+      bottomNavigationBar: useRail
           ? null
           : NavigationBar(
               selectedIndex: _selectedIndex,
@@ -150,41 +178,45 @@ class _StudyHomePageState extends State<StudyHomePage> {
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(
-            isWide ? 24 : 16,
-            isWide ? 24 : 16,
-            isWide ? 24 : 16,
+            layout.pagePadding,
+            layout.pagePadding,
+            layout.pagePadding,
             0,
           ),
-          child: isWide
-              ? Row(
-                  children: [
-                    _RailCard(
-                      selectedIndex: _selectedIndex,
-                      dueCount: dueWords.length,
-                      onSelected: _selectTab,
-                    ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: _ContentCard(
-                        title: titles[_selectedIndex],
-                        subtitle: subtitles[_selectedIndex],
-                        badge: _badgeLabel(
-                          wordCount: words.length,
+          child: useRail
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1440),
+                    child: Row(
+                      children: [
+                        _RailCard(
+                          selectedIndex: _selectedIndex,
                           dueCount: dueWords.length,
+                          onSelected: _selectTab,
+                          width: layout.maxWidth >= 1320 ? 272 : 244,
                         ),
-                        child: _buildPage(words: words, dueWords: dueWords),
-                      ),
+                        const SizedBox(width: 18),
+                        Expanded(child: mainContent),
+                      ],
                     ),
-                  ],
-                )
-              : _ContentCard(
-                  title: titles[_selectedIndex],
-                  subtitle: subtitles[_selectedIndex],
-                  badge: _badgeLabel(
-                    wordCount: words.length,
-                    dueCount: dueWords.length,
                   ),
-                  child: _buildPage(words: words, dueWords: dueWords),
+                )
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: layout.maxReadableWidth,
+                    ),
+                    child: _MobilePageLayout(
+                      title: titles[_selectedIndex],
+                      subtitle: subtitles[_selectedIndex],
+                      badge: _badgeLabel(
+                        wordCount: words.length,
+                        dueCount: dueWords.length,
+                      ),
+                      child: mainPage,
+                    ),
+                  ),
                 ),
         ),
       ),
@@ -194,15 +226,20 @@ class _StudyHomePageState extends State<StudyHomePage> {
   Widget _buildPage({
     required List<VocabWord> words,
     required List<VocabWord> dueWords,
+    required List<VocabWord> todayRecommendedWords,
   }) {
     switch (_selectedIndex) {
       case 0:
         return _DashboardPage(
           words: words,
           dueWords: dueWords,
+          todayRecommendedWords: todayRecommendedWords,
+          onOpenSection: _selectTab,
           onBookmarkToggle: widget.repository.toggleBookmark,
           onSpeakWord: _speakWord,
           onSpeakExample: _speakExample,
+          onOpenCoach: _openWordCoach,
+          onAddDailyWord: _openDailyRecommendationSheet,
         );
       case 1:
         final allDecks = <String>{
@@ -231,6 +268,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
           onBookmarkToggle: widget.repository.toggleBookmark,
           onSpeakWord: _speakWord,
           onSpeakExample: _speakExample,
+          onOpenCoach: _openWordCoach,
         );
       case 2:
         return _PracticePage(
@@ -255,6 +293,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
           },
           onSpeakWord: _speakWord,
           onSpeakExample: _speakExample,
+          onOpenCoach: _openWordCoach,
         );
       case 3:
         return ImmersionHubPage(
@@ -281,6 +320,28 @@ class _StudyHomePageState extends State<StudyHomePage> {
           dictionaryRepository: widget.dictionaryRepository,
           repository: widget.repository,
           pronunciationService: widget.pronunciationService,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDailyRecommendationSheet() {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.94,
+        child: AddWordSheet(
+          dictionaryRepository: widget.dictionaryRepository,
+          repository: widget.repository,
+          pronunciationService: widget.pronunciationService,
+          defaultDeck: '오늘의 추천',
+          initialIsDailyRecommendation: true,
+          title: '오늘의 추천 단어 추가',
+          subtitle:
+              '오늘 꼭 기억하고 싶은 단어를 사전 자동 채움과 함께 저장하면 홈 대시보드의 추천 영역에 바로 나타납니다.',
+          submitLabel: '오늘 추천 저장',
         ),
       ),
     );
@@ -317,6 +378,23 @@ class _StudyHomePageState extends State<StudyHomePage> {
         context,
       ).showSnackBar(SnackBar(content: Text(errorMessage)));
     }
+  }
+
+  Future<void> _openWordCoach(VocabWord word) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.94,
+        child: WordCoachSheet(
+          word: word,
+          pronunciationService: widget.pronunciationService,
+          assessmentService: widget.pronunciationAssessmentService,
+          studyCoachService: widget.studyCoachService,
+        ),
+      ),
+    );
   }
 
   void _selectTab(int index) {
@@ -359,25 +437,47 @@ class _StudyHomePageState extends State<StudyHomePage> {
     due.sort((a, b) => (a.nextReviewAt ?? 0).compareTo(b.nextReviewAt ?? 0));
     return due;
   }
+
+  static List<VocabWord> _todayRecommendedWords(List<VocabWord> words) {
+    final todayKey = dailyRecommendationDateKey(DateTime.now());
+    final recommended = words
+        .where(
+          (word) =>
+              word.isDailyRecommendation &&
+              word.dailyRecommendationDateKey == todayKey,
+        )
+        .toList();
+    recommended.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return recommended;
+  }
 }
 
 class _DashboardPage extends StatelessWidget {
   const _DashboardPage({
     required this.words,
     required this.dueWords,
+    required this.todayRecommendedWords,
+    required this.onOpenSection,
     required this.onBookmarkToggle,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.onOpenCoach,
+    required this.onAddDailyWord,
   });
 
   final List<VocabWord> words;
   final List<VocabWord> dueWords;
+  final List<VocabWord> todayRecommendedWords;
+  final ValueChanged<int> onOpenSection;
   final Future<void> Function(VocabWord word) onBookmarkToggle;
   final Future<void> Function(VocabWord word) onSpeakWord;
   final Future<void> Function(VocabWord word) onSpeakExample;
+  final Future<void> Function(VocabWord word) onOpenCoach;
+  final Future<void> Function() onAddDailyWord;
 
   @override
   Widget build(BuildContext context) {
+    final showHero = MediaQuery.sizeOf(context).width >= 720;
     final deckSummaries = _deckSummaries(words);
     final average = words.isEmpty
         ? 0
@@ -386,21 +486,79 @@ class _DashboardPage extends StatelessWidget {
                   100)
               .round();
     final bookmarks = words.where((word) => word.isBookmarked).length;
+    final modules = [
+      _DashboardModule(
+        tabIndex: 1,
+        icon: Icons.layers_rounded,
+        label: '컬렉션',
+        value: '${words.length}장',
+        title: '단어 라이브러리',
+        body: '덱과 검색으로 카드를 정리하고 다시 찾을 수 있어요.',
+        color: AppColors.teal,
+      ),
+      _DashboardModule(
+        tabIndex: 2,
+        icon: Icons.bolt_rounded,
+        label: '복습',
+        value: '${dueWords.length}개',
+        title: '리뷰 세션',
+        body: '지금 다시 볼 카드부터 빠르게 이어서 복습합니다.',
+        color: AppColors.coral,
+      ),
+      _DashboardModule(
+        tabIndex: 3,
+        icon: Icons.explore_rounded,
+        label: '실전',
+        value: '${immersionLearningResources.length}개',
+        title: '실전 독일어',
+        body: '뉴스와 자료를 눌러 실제 문맥 속 단어와 바로 연결됩니다.',
+        color: AppColors.ink,
+      ),
+      _DashboardModule(
+        tabIndex: 4,
+        icon: Icons.insights_rounded,
+        label: '통계',
+        value: '$average%',
+        title: '학습 인사이트',
+        body: '리듬과 약한 덱을 확인하며 다음 루틴을 정리할 수 있어요.',
+        color: AppColors.gold,
+      ),
+    ];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
       children: [
-        const _HeroBanner(
-          color: AppColors.ink,
-          eyebrow: 'Study rhythm',
-          title: 'Guten Tag.\n오늘의 독일어 흐름을 이어가 보세요.',
-          body:
-              '웹과 앱에서 같은 Drift 로컬 데이터베이스 흐름으로 단어를 쌓고, 복습 큐를 이어서 관리할 수 있게 구성했습니다.',
+        if (showHero) ...[
+          const _HeroBanner(
+            color: AppColors.ink,
+            eyebrow: 'Study rhythm',
+            title: 'Guten Tag.\n오늘의 독일어 흐름을 이어가 보세요.',
+            body:
+                '웹과 앱에서 같은 Drift 로컬 데이터베이스 흐름으로 단어를 쌓고, 복습 큐를 이어서 관리할 수 있게 구성했습니다.',
+          ),
+          const SizedBox(height: 20),
+        ],
+        const _SectionTitle(
+          title: '빠른 이동',
+          subtitle: '필요한 흐름을 누르면 해당 정보 화면으로 바로 이어집니다.',
         ),
-        const SizedBox(height: 20),
-        Wrap(
-          spacing: 14,
-          runSpacing: 14,
+        const SizedBox(height: 14),
+        _AdaptiveCardGrid(
+          minTileWidth: 148,
+          maxColumns: 4,
+          children: modules
+              .map(
+                (module) => _DashboardModuleCard(
+                  module: module,
+                  onTap: () => onOpenSection(module.tabIndex),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 24),
+        _AdaptiveCardGrid(
+          minTileWidth: 160,
+          maxColumns: 4,
           children: [
             _MetricTile(
               label: '전체 단어',
@@ -413,6 +571,12 @@ class _DashboardPage extends StatelessWidget {
               value: '${dueWords.length}',
               hint: '지금 다시 볼 카드',
               color: AppColors.coral,
+            ),
+            _MetricTile(
+              label: '오늘 추천',
+              value: '${todayRecommendedWords.length}',
+              hint: '직접 고른 단어',
+              color: AppColors.gold,
             ),
             _MetricTile(
               label: '북마크',
@@ -429,6 +593,43 @@ class _DashboardPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 26),
+        const _SectionTitle(
+          title: '오늘의 추천 단어',
+          subtitle: '매일 직접 고른 단어를 따로 모아 두고, 단어 뜻과 문법 포인트를 함께 복습해 보세요.',
+        ),
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: onAddDailyWord,
+            icon: const Icon(Icons.auto_awesome_rounded),
+            label: const Text('오늘 추천 단어 추가'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.ink,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (todayRecommendedWords.isEmpty)
+          const _EmptyPanel(
+            title: '아직 오늘 추천 단어가 없어요.',
+            message: '오늘 꼭 기억하고 싶은 단어를 하나 골라 추가해 두면 홈에서 바로 다시 볼 수 있습니다.',
+          )
+        else
+          ...todayRecommendedWords.map(
+            (word) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _FocusWordTile(
+                word: word,
+                onBookmark: () => onBookmarkToggle(word),
+                onSpeakWord: () => onSpeakWord(word),
+                onSpeakExample: () => onSpeakExample(word),
+                onOpenCoach: () => onOpenCoach(word),
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
         const _SectionTitle(
           title: '오늘의 포커스',
           subtitle: '지금 꺼내 보면 좋은 단어부터 먼저 정리했습니다.',
@@ -450,6 +651,7 @@ class _DashboardPage extends StatelessWidget {
                     onBookmark: () => onBookmarkToggle(word),
                     onSpeakWord: () => onSpeakWord(word),
                     onSpeakExample: () => onSpeakExample(word),
+                    onOpenCoach: () => onOpenCoach(word),
                   ),
                 ),
               ),
@@ -481,6 +683,7 @@ class _CollectionPage extends StatelessWidget {
     required this.onBookmarkToggle,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.onOpenCoach,
   });
 
   final List<VocabWord> words;
@@ -492,19 +695,24 @@ class _CollectionPage extends StatelessWidget {
   final Future<void> Function(VocabWord word) onBookmarkToggle;
   final Future<void> Function(VocabWord word) onSpeakWord;
   final Future<void> Function(VocabWord word) onSpeakExample;
+  final Future<void> Function(VocabWord word) onOpenCoach;
 
   @override
   Widget build(BuildContext context) {
+    final showHero = MediaQuery.sizeOf(context).width >= 720;
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
       children: [
-        const _HeroBanner(
-          color: AppColors.teal,
-          eyebrow: 'Word library',
-          title: '단어 컬렉션을 덱별로\n차분하게 쌓아보세요.',
-          body: '검색과 덱 필터로 원하는 주제를 빠르게 찾고, 중요한 카드는 북마크로 다시 복습 큐에 불러올 수 있습니다.',
-        ),
-        const SizedBox(height: 20),
+        if (showHero) ...[
+          const _HeroBanner(
+            color: AppColors.teal,
+            eyebrow: 'Word library',
+            title: '단어 컬렉션을 덱별로\n차분하게 쌓아보세요.',
+            body:
+                '검색과 덱 필터로 원하는 주제를 빠르게 찾고, 중요한 카드는 북마크로 다시 복습 큐에 불러올 수 있습니다.',
+          ),
+          const SizedBox(height: 20),
+        ],
         TextField(
           controller: searchController,
           onChanged: onSearchChanged,
@@ -542,6 +750,7 @@ class _CollectionPage extends StatelessWidget {
                 onBookmark: () => onBookmarkToggle(word),
                 onSpeakWord: () => onSpeakWord(word),
                 onSpeakExample: () => onSpeakExample(word),
+                onOpenCoach: () => onOpenCoach(word),
               ),
             ),
           ),
@@ -558,6 +767,7 @@ class _PracticePage extends StatelessWidget {
     required this.onReview,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.onOpenCoach,
   });
 
   final List<VocabWord> dueWords;
@@ -566,20 +776,24 @@ class _PracticePage extends StatelessWidget {
   final Future<void> Function(VocabWord word, bool remembered) onReview;
   final Future<void> Function(VocabWord word) onSpeakWord;
   final Future<void> Function(VocabWord word) onSpeakExample;
+  final Future<void> Function(VocabWord word) onOpenCoach;
 
   @override
   Widget build(BuildContext context) {
+    final showHero = MediaQuery.sizeOf(context).width >= 720;
     if (dueWords.isEmpty) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
-        children: const [
-          _HeroBanner(
-            color: AppColors.gold,
-            eyebrow: 'Review queue',
-            title: '오늘 복습 큐를\n깨끗하게 비웠습니다.',
-            body: '새 단어를 추가하면 즉시 복습 큐에 들어가도록 구성해 두었습니다.',
-          ),
-          SizedBox(height: 20),
+        children: [
+          if (showHero) ...const [
+            _HeroBanner(
+              color: AppColors.gold,
+              eyebrow: 'Review queue',
+              title: '오늘 복습 큐를\n깨끗하게 비웠습니다.',
+              body: '새 단어를 추가하면 즉시 복습 큐에 들어가도록 구성해 두었습니다.',
+            ),
+            SizedBox(height: 20),
+          ],
           _EmptyPanel(
             title: '지금은 복습할 카드가 없어요.',
             message: '조금 있다가 다시 오거나 새 단어를 넣어 다음 세션을 시작해 보세요.',
@@ -593,14 +807,16 @@ class _PracticePage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
       children: [
-        _HeroBanner(
-          color: AppColors.coral,
-          eyebrow: 'Active recall',
-          title: '답을 보기 전에 먼저\n뜻과 장면을 떠올려 보세요.',
-          body:
-              '기억 여부에 따라 복습 간격을 자동으로 다시 배치합니다. 남은 복습은 ${dueWords.length}개입니다.',
-        ),
-        const SizedBox(height: 20),
+        if (showHero) ...[
+          _HeroBanner(
+            color: AppColors.coral,
+            eyebrow: 'Active recall',
+            title: '답을 보기 전에 먼저\n뜻과 장면을 떠올려 보세요.',
+            body:
+                '기억 여부에 따라 복습 간격을 자동으로 다시 배치합니다. 남은 복습은 ${dueWords.length}개입니다.',
+          ),
+          const SizedBox(height: 20),
+        ],
         _PracticeCard(
           word: current,
           revealAnswer: revealAnswer,
@@ -609,6 +825,7 @@ class _PracticePage extends StatelessWidget {
           onRemembered: () => onReview(current, true),
           onSpeakWord: () => onSpeakWord(current),
           onSpeakExample: () => onSpeakExample(current),
+          onOpenCoach: () => onOpenCoach(current),
         ),
         const SizedBox(height: 20),
         const _SectionTitle(title: '다음 카드', subtitle: '곧 이어서 복습하게 될 단어들입니다.'),
@@ -635,6 +852,7 @@ class _InsightsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showHero = MediaQuery.sizeOf(context).width >= 720;
     return StreamBuilder<List<StudySession>>(
       stream: repository.watchStudySessions(),
       builder: (context, snapshot) {
@@ -650,16 +868,19 @@ class _InsightsPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
           children: [
-            const _HeroBanner(
-              color: AppColors.gold,
-              eyebrow: 'Learning pulse',
-              title: '조용하지만 분명하게,\n학습 리듬을 숫자로 확인하세요.',
-              body: '최근 7일 학습량과 덱별 숙련도를 함께 보며 무엇을 더 끌어올려야 할지 빠르게 판단할 수 있습니다.',
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 14,
-              runSpacing: 14,
+            if (showHero) ...const [
+              _HeroBanner(
+                color: AppColors.gold,
+                eyebrow: 'Learning pulse',
+                title: '조용하지만 분명하게,\n학습 리듬을 숫자로 확인하세요.',
+                body:
+                    '최근 7일 학습량과 덱별 숙련도를 함께 보며 무엇을 더 끌어올려야 할지 빠르게 판단할 수 있습니다.',
+              ),
+              SizedBox(height: 20),
+            ],
+            _AdaptiveCardGrid(
+              minTileWidth: 170,
+              maxColumns: 4,
               children: [
                 _MetricTile(
                   label: '이번 주 복습',
@@ -718,16 +939,18 @@ class _RailCard extends StatelessWidget {
     required this.selectedIndex,
     required this.dueCount,
     required this.onSelected,
+    required this.width,
   });
 
   final int selectedIndex;
   final int dueCount;
   final ValueChanged<int> onSelected;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 250,
+      width: width,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.84),
         borderRadius: BorderRadius.circular(32),
@@ -821,70 +1044,172 @@ class _ContentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(34),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.07),
-            blurRadius: 36,
-            offset: const Offset(0, 16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+        final header = <Widget>[
+          Text(
+            title,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              fontSize: layout.displayTitleSize,
+            ),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(34),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
+          const SizedBox(height: 10),
+          Text(subtitle, style: Theme.of(context).textTheme.bodyLarge),
+        ];
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.ink.withValues(alpha: 0.07),
+                blurRadius: 36,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                layout.cardPadding,
+                layout.cardPadding,
+                layout.cardPadding,
+                0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (layout.maxWidth < 560) ...[
+                    ...header,
+                    const SizedBox(height: 14),
+                    _HeaderBadge(badge: badge),
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: header,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        _HeaderBadge(badge: badge),
+                      ],
+                    ),
+                  const SizedBox(height: 18),
+                  Expanded(child: child),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobilePageLayout extends StatelessWidget {
+  const _MobilePageLayout({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badge;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PageIntroHeader(title: title, subtitle: subtitle, badge: badge),
+        const SizedBox(height: 18),
+        Expanded(child: child),
+      ],
+    );
+  }
+}
+
+class _PageIntroHeader extends StatelessWidget {
+  const _PageIntroHeader({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(
+            layout.isCompact ? 2 : 4,
+            6,
+            layout.isCompact ? 2 : 4,
+            0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: Theme.of(context).textTheme.displaySmall,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          subtitle,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
+              if (layout.maxWidth < 420) ...[
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontSize: layout.isCompact ? 26 : 30,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      badge,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
+                ),
+                const SizedBox(height: 12),
+                _MobileHeaderBadge(label: badge),
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style:
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                              fontSize: layout.isCompact ? 26 : 30,
+                            ),
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    _MobileHeaderBadge(label: badge),
+                  ],
+                ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: layout.isTablet ? 620 : double.infinity,
+                ),
+                child: Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: layout.isCompact ? 15 : 16,
+                    height: 1.55,
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 18),
-              Expanded(child: child),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -926,6 +1251,238 @@ class _BackdropOrbs extends StatelessWidget {
         color: color,
         boxShadow: [BoxShadow(color: color, blurRadius: 80, spreadRadius: 10)],
       ),
+    );
+  }
+}
+
+class _AdaptiveCardGrid extends StatelessWidget {
+  const _AdaptiveCardGrid({
+    required this.children,
+    this.minTileWidth = 180,
+    this.maxColumns = 4,
+  });
+
+  final List<Widget> children;
+  final double minTileWidth;
+  final int maxColumns;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 14.0;
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+        final columns = layout.columnsFor(
+          minTileWidth: minTileWidth,
+          maxColumns: maxColumns,
+          spacing: spacing,
+        );
+        final itemWidth = layout.itemWidth(columns: columns, spacing: spacing);
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HeaderBadge extends StatelessWidget {
+  const _HeaderBadge({required this.badge});
+
+  final String badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        badge,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: AppColors.ink,
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileHeaderBadge extends StatelessWidget {
+  const _MobileHeaderBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.ink.withValues(alpha: 0.05)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: AppColors.ink,
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardModule {
+  const _DashboardModule({
+    required this.tabIndex,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.title,
+    required this.body,
+    required this.color,
+  });
+
+  final int tabIndex;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String title;
+  final String body;
+  final Color color;
+}
+
+class _DashboardModuleCard extends StatelessWidget {
+  const _DashboardModuleCard({required this.module, required this.onTap});
+
+  final _DashboardModule module;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 210;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(compact ? 22 : 26),
+            child: Ink(
+              padding: EdgeInsets.all(compact ? 14 : 18),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(compact ? 22 : 26),
+                border: Border.all(color: module.color.withValues(alpha: 0.16)),
+              ),
+              child: SizedBox(
+                height: compact ? 150 : 178,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: compact ? 16 : 20,
+                          backgroundColor: module.color.withValues(alpha: 0.14),
+                          child: Icon(
+                            module.icon,
+                            color: module.color,
+                            size: compact ? 18 : 22,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compact ? 8 : 10,
+                            vertical: compact ? 5 : 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: module.color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            module.label,
+                            style: TextStyle(
+                              color: module.color,
+                              fontWeight: FontWeight.w800,
+                              fontSize: compact ? 12 : 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: compact ? 10 : 14),
+                    Text(
+                      module.value,
+                      style: TextStyle(
+                        fontSize: compact ? 22 : 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      module.title,
+                      style: TextStyle(
+                        fontSize: compact ? 16 : 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                        height: 1.15,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: compact ? 6 : 8),
+                    Expanded(
+                      child: Text(
+                        module.body,
+                        style: TextStyle(
+                          height: 1.45,
+                          color: const Color(0xFF5F707F),
+                          fontSize: compact ? 13 : 14,
+                        ),
+                        maxLines: compact ? 3 : 4,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '열어서 보기',
+                          style: TextStyle(
+                            color: module.color,
+                            fontWeight: FontWeight.w700,
+                            fontSize: compact ? 13 : 14,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: compact ? 16 : 18,
+                          color: module.color,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1034,55 +1591,72 @@ class _HeroBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          colors: [color, color.withValues(alpha: 0.82)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(99),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+        final compact = layout.maxWidth < 720;
+
+        return Container(
+          padding: EdgeInsets.all(compact ? 18 : layout.cardPadding),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(compact ? 24 : layout.panelRadius),
+            gradient: LinearGradient(
+              colors: [color, color.withValues(alpha: 0.82)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Text(
-              eyebrow,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  eyebrow,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
+              SizedBox(height: layout.sectionGap),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: compact ? 21 : layout.heroTitleSize,
+                  fontWeight: FontWeight.w800,
+                  height: 1.08,
+                  letterSpacing: -0.9,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: layout.isExpanded ? 640 : double.infinity,
+                ),
+                child: Text(
+                  body,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: compact ? 14 : layout.bodySize,
+                    height: 1.55,
+                  ),
+                  maxLines: compact ? 3 : null,
+                  overflow: compact ? TextOverflow.ellipsis : null,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              height: 1.08,
-              letterSpacing: -0.9,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            body,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 15,
-              height: 1.55,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1102,40 +1676,59 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: AppColors.ink.withValues(alpha: 0.05)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: color.withValues(alpha: 0.14),
-              child: Icon(Icons.auto_awesome_rounded, color: color),
-            ),
-            const SizedBox(height: 14),
-            Text(label, style: const TextStyle(color: Color(0xFF617180))),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1,
-                color: AppColors.ink,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 190;
+
+        return Container(
+          padding: EdgeInsets.all(compact ? 14 : 18),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(compact ? 20 : 26),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.05)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: compact ? 18 : 22,
+                backgroundColor: color.withValues(alpha: 0.14),
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  color: color,
+                  size: compact ? 18 : 22,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(hint, style: const TextStyle(color: Color(0xFF617180))),
-          ],
-        ),
-      ),
+              SizedBox(height: compact ? 10 : 14),
+              Text(
+                label,
+                style: TextStyle(
+                  color: const Color(0xFF617180),
+                  fontSize: compact ? 13 : 14,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: compact ? 24 : 32,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hint,
+                style: TextStyle(
+                  color: const Color(0xFF617180),
+                  fontSize: compact ? 12 : 13,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1148,28 +1741,34 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            color: AppColors.ink,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.5,
-            color: Color(0xFF617180),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: layout.isCompact ? 20 : 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: layout.isCompact ? 13 : 14,
+                height: 1.5,
+                color: const Color(0xFF617180),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1182,43 +1781,91 @@ class _EmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          padding: EdgeInsets.all(layout.cardPadding),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+          ),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: AppColors.ink.withValues(alpha: 0.1),
+                child: const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: AppColors.ink,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 20 : 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: layout.bodySize,
+                  height: 1.55,
+                  color: const Color(0xFF617180),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GrammarNotePanel extends StatelessWidget {
+  const _GrammarNotePanel({
+    required this.note,
+    this.title = '문법 메모',
+    this.color = AppColors.teal,
+  });
+
+  final String note;
+  final String title;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: AppColors.ink.withValues(alpha: 0.1),
-            child: const Icon(
-              Icons.check_circle_outline_rounded,
-              color: AppColors.ink,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 14),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-            textAlign: TextAlign.center,
+            style: TextStyle(color: color, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            message,
+            note,
             style: const TextStyle(
-              fontSize: 15,
-              height: 1.55,
-              color: Color(0xFF617180),
+              height: 1.5,
+              color: Color(0xFF566978),
+              fontWeight: FontWeight.w600,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -1232,102 +1879,133 @@ class _FocusWordTile extends StatelessWidget {
     required this.onBookmark,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.onOpenCoach,
   });
 
   final VocabWord word;
   final VoidCallback onBookmark;
   final Future<void> Function() onSpeakWord;
   final Future<void> Function() onSpeakExample;
+  final Future<void> Function() onOpenCoach;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          padding: EdgeInsets.all(layout.cardPadding),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _deckChip(word.deck),
-              const Spacer(),
-              IconButton.filledTonal(
-                onPressed: onBookmark,
-                icon: Icon(
-                  word.isBookmarked
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_border_rounded,
+              Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _deckChip(word.deck),
+                        if (_isTodayRecommendation(word))
+                          _statusChip('오늘 추천', AppColors.gold),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton.filledTonal(
+                    onPressed: onBookmark,
+                    icon: Icon(
+                      word.isBookmarked
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _headline(word),
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 23 : 27,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                '${word.meaningKo}  |  ${word.meaningEn}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.teal,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '발음: ${word.pronunciation}  |  음성: ${_voiceLocaleLabel(word.ttsLocale)}',
+                style: const TextStyle(
+                  color: Color(0xFF617180),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _SpeechActionButton(
+                    icon: Icons.volume_up_rounded,
+                    label: '단어 듣기',
+                    onPressed: onSpeakWord,
+                  ),
+                  _SpeechActionButton(
+                    icon: Icons.record_voice_over_rounded,
+                    label: '예문 듣기',
+                    onPressed: onSpeakExample,
+                  ),
+                  _SpeechActionButton(
+                    icon: Icons.mic_external_on_rounded,
+                    label: '발음 점검',
+                    onPressed: onOpenCoach,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                word.exampleSentence,
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 14 : 15,
+                  height: 1.5,
+                  color: AppColors.ink,
+                ),
+                maxLines: layout.isCompact ? 3 : null,
+                overflow: layout.isCompact ? TextOverflow.ellipsis : null,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                word.exampleTranslation,
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 13 : 14,
+                  height: 1.5,
+                  color: const Color(0xFF677785),
+                ),
+                maxLines: layout.isCompact ? 2 : null,
+                overflow: layout.isCompact ? TextOverflow.ellipsis : null,
+              ),
+              if (_grammarNote(word).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _GrammarNotePanel(note: _grammarNote(word)),
+              ],
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            _headline(word),
-            style: const TextStyle(
-              fontSize: 27,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${word.meaningKo}  |  ${word.meaningEn}',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.teal,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '발음: ${word.pronunciation}  |  음성: ${_voiceLocaleLabel(word.ttsLocale)}',
-            style: const TextStyle(
-              color: Color(0xFF617180),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _SpeechActionButton(
-                icon: Icons.volume_up_rounded,
-                label: '단어 듣기',
-                onPressed: onSpeakWord,
-              ),
-              _SpeechActionButton(
-                icon: Icons.record_voice_over_rounded,
-                label: '예문 듣기',
-                onPressed: onSpeakExample,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            word.exampleSentence,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            word.exampleTranslation,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Color(0xFF677785),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1406,12 +2084,14 @@ class _CollectionWordTile extends StatelessWidget {
     required this.onBookmark,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.onOpenCoach,
   });
 
   final VocabWord word;
   final VoidCallback onBookmark;
   final Future<void> Function() onSpeakWord;
   final Future<void> Function() onSpeakExample;
+  final Future<void> Function() onOpenCoach;
 
   @override
   Widget build(BuildContext context) {
@@ -1421,130 +2101,194 @@ class _CollectionWordTile extends StatelessWidget {
         ? AppColors.gold
         : AppColors.coral;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          padding: EdgeInsets.all(layout.cardPadding),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _deckChip(word.deck),
-              const Spacer(),
-              IconButton(
-                onPressed: onBookmark,
-                icon: Icon(
-                  word.isBookmarked
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_outline_rounded,
-                  color: word.isBookmarked ? AppColors.coral : AppColors.ink,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            _headline(word),
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            word.partOfSpeech,
-            style: const TextStyle(
-              color: Color(0xFF6A7987),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '${word.meaningKo}  |  ${word.meaningEn}',
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              color: Color(0xFF455A6E),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '음성 locale: ${_voiceLocaleLabel(word.ttsLocale)}',
-            style: const TextStyle(
-              color: Color(0xFF617180),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _SpeechActionButton(
-                icon: Icons.volume_up_rounded,
-                label: '단어 듣기',
-                onPressed: onSpeakWord,
-              ),
-              _SpeechActionButton(
-                icon: Icons.record_voice_over_rounded,
-                label: '예문 듣기',
-                onPressed: onSpeakExample,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            word.exampleSentence,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            word.exampleTranslation,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Color(0xFF60707F),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: masteryColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  '숙련도 ${word.mastery}/5',
-                  style: TextStyle(
-                    color: masteryColor,
-                    fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _deckChip(word.deck),
+                        if (_isTodayRecommendation(word))
+                          _statusChip('오늘 추천', AppColors.gold),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: onBookmark,
+                    icon: Icon(
+                      word.isBookmarked
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_outline_rounded,
+                      color: word.isBookmarked
+                          ? AppColors.coral
+                          : AppColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                _headline(word),
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 22 : 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 6),
               Text(
-                _reviewLabel(word.nextReviewAt),
+                word.partOfSpeech,
+                style: const TextStyle(
+                  color: Color(0xFF6A7987),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${word.meaningKo}  |  ${word.meaningEn}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  color: Color(0xFF455A6E),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '음성 locale: ${_voiceLocaleLabel(word.ttsLocale)}',
                 style: const TextStyle(
                   color: Color(0xFF617180),
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _SpeechActionButton(
+                    icon: Icons.volume_up_rounded,
+                    label: '단어 듣기',
+                    onPressed: onSpeakWord,
+                  ),
+                  _SpeechActionButton(
+                    icon: Icons.record_voice_over_rounded,
+                    label: '예문 듣기',
+                    onPressed: onSpeakExample,
+                  ),
+                  _SpeechActionButton(
+                    icon: Icons.mic_external_on_rounded,
+                    label: '발음 점검',
+                    onPressed: onOpenCoach,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                word.exampleSentence,
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 14 : 15,
+                  height: 1.5,
+                  color: AppColors.ink,
+                ),
+                maxLines: layout.isCompact ? 3 : null,
+                overflow: layout.isCompact ? TextOverflow.ellipsis : null,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                word.exampleTranslation,
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 13 : 14,
+                  height: 1.5,
+                  color: const Color(0xFF60707F),
+                ),
+                maxLines: layout.isCompact ? 2 : null,
+                overflow: layout.isCompact ? TextOverflow.ellipsis : null,
+              ),
+              if (_grammarNote(word).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _GrammarNotePanel(
+                  note: _grammarNote(word),
+                  color: AppColors.gold,
+                ),
+              ],
+              const SizedBox(height: 14),
+              if (layout.maxWidth < 420)
+                Wrap(
+                  runSpacing: 10,
+                  spacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _MasteryPill(
+                      masteryColor: masteryColor,
+                      mastery: word.mastery,
+                    ),
+                    Text(
+                      _reviewLabel(word.nextReviewAt),
+                      style: const TextStyle(
+                        color: Color(0xFF617180),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    _MasteryPill(
+                      masteryColor: masteryColor,
+                      mastery: word.mastery,
+                    ),
+                    const Spacer(),
+                    Text(
+                      _reviewLabel(word.nextReviewAt),
+                      style: const TextStyle(
+                        color: Color(0xFF617180),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _MasteryPill extends StatelessWidget {
+  const _MasteryPill({required this.masteryColor, required this.mastery});
+
+  final Color masteryColor;
+  final int mastery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: masteryColor.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        '숙련도 $mastery/5',
+        style: TextStyle(color: masteryColor, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1559,6 +2303,7 @@ class _PracticeCard extends StatelessWidget {
     required this.onRemembered,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.onOpenCoach,
   });
 
   final VocabWord word;
@@ -1568,149 +2313,210 @@ class _PracticeCard extends StatelessWidget {
   final Future<void> Function() onRemembered;
   final Future<void> Function() onSpeakWord;
   final Future<void> Function() onSpeakExample;
+  final Future<void> Function() onOpenCoach;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          padding: EdgeInsets.all(layout.cardPadding),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _deckChip(word.deck),
-              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _deckChip(word.deck),
+                        if (_isTodayRecommendation(word))
+                          _statusChip('오늘 추천', AppColors.gold),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '리뷰 ${word.timesReviewed}회',
+                    style: const TextStyle(
+                      color: Color(0xFF60707F),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
               Text(
-                '리뷰 ${word.timesReviewed}회',
+                _headline(word),
+                style: TextStyle(
+                  fontSize: layout.isCompact ? 28 : 34,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '발음 메모: ${word.pronunciation}\n음성 locale: ${_voiceLocaleLabel(word.ttsLocale)}',
                 style: const TextStyle(
                   color: Color(0xFF60707F),
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            _headline(word),
-            style: const TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '발음 메모: ${word.pronunciation}\n음성 locale: ${_voiceLocaleLabel(word.ttsLocale)}',
-            style: const TextStyle(
-              color: Color(0xFF60707F),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _SpeechActionButton(
-                icon: Icons.volume_up_rounded,
-                label: '단어 듣기',
-                onPressed: onSpeakWord,
-              ),
-              _SpeechActionButton(
-                icon: Icons.record_voice_over_rounded,
-                label: '예문 듣기',
-                onPressed: onSpeakExample,
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: revealAnswer
-                  ? AppColors.mist.withValues(alpha: 0.75)
-                  : AppColors.background.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  revealAnswer ? word.meaningKo : '먼저 뜻을 떠올려 보세요.',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _SpeechActionButton(
+                    icon: Icons.volume_up_rounded,
+                    label: '단어 듣기',
+                    onPressed: onSpeakWord,
                   ),
+                  _SpeechActionButton(
+                    icon: Icons.record_voice_over_rounded,
+                    label: '예문 듣기',
+                    onPressed: onSpeakExample,
+                  ),
+                  _SpeechActionButton(
+                    icon: Icons.mic_external_on_rounded,
+                    label: '발음 점검',
+                    onPressed: onOpenCoach,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: revealAnswer
+                      ? AppColors.mist.withValues(alpha: 0.75)
+                      : AppColors.background.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  revealAnswer
-                      ? '${word.meaningEn}\n${word.exampleSentence}\n${word.exampleTranslation}'
-                      : '뜻을 확인하기 전에는 예문과 해석이 가려집니다.',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.55,
-                    color: Color(0xFF566978),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      revealAnswer ? word.meaningKo : '먼저 뜻을 떠올려 보세요.',
+                      style: TextStyle(
+                        fontSize: layout.isCompact ? 20 : 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      revealAnswer
+                          ? '${word.meaningEn}\n${word.exampleSentence}\n${word.exampleTranslation}'
+                          : '뜻을 확인하기 전에는 예문과 해석이 가려집니다.',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.55,
+                        color: Color(0xFF566978),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (revealAnswer && _grammarNote(word).isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _GrammarNotePanel(
+                  title: '문법 포인트',
+                  note: _grammarNote(word),
+                  color: AppColors.gold,
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (!revealAnswer)
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onReveal,
-                icon: const Icon(Icons.visibility_rounded),
-                label: const Text('뜻 보기'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  side: BorderSide(
-                    color: AppColors.ink.withValues(alpha: 0.12),
-                  ),
-                ),
-              ),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
+              const SizedBox(height: 18),
+              if (!revealAnswer)
+                SizedBox(
+                  width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: onForgot,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('다시 보기'),
+                    onPressed: onReveal,
+                    icon: const Icon(Icons.visibility_rounded),
+                    label: const Text('뜻 보기'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.coral,
                       padding: const EdgeInsets.symmetric(vertical: 18),
-                      side: const BorderSide(color: AppColors.coral),
+                      side: BorderSide(
+                        color: AppColors.ink.withValues(alpha: 0.12),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onRemembered,
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('기억했어요'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ink,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                )
+              else if (layout.maxWidth < 440)
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onForgot,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('다시 보기'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.coral,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          side: const BorderSide(color: AppColors.coral),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: onRemembered,
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('기억했어요'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.ink,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onForgot,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('다시 보기'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.coral,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          side: const BorderSide(color: AppColors.coral),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onRemembered,
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('기억했어요'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.ink,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1722,50 +2528,101 @@ class _QueueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.ink.withValues(alpha: 0.1),
-            child: const Icon(Icons.menu_book_rounded, color: AppColors.ink),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 420;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.86),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.05)),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _headline(word),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                  ),
+          child: isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppColors.ink.withValues(alpha: 0.1),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            _headline(word),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      word.meaningKo,
+                      style: const TextStyle(color: Color(0xFF617180)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '숙련도 ${word.mastery}/5',
+                      style: const TextStyle(
+                        color: Color(0xFF617180),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.ink.withValues(alpha: 0.1),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _headline(word),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            word.meaningKo,
+                            style: const TextStyle(color: Color(0xFF617180)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '숙련도 ${word.mastery}/5',
+                      style: const TextStyle(
+                        color: Color(0xFF617180),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  word.meaningKo,
-                  style: const TextStyle(color: Color(0xFF617180)),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '숙련도 ${word.mastery}/5',
-            style: const TextStyle(
-              color: Color(0xFF617180),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1808,70 +2665,85 @@ class _ActivityChart extends StatelessWidget {
       days.fold<int>(0, (sum, day) => math.max(sum, day.reviews)),
     );
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        children: days.map((day) {
-          final ratio = day.reviews / maxReviews;
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              child: Column(
-                children: [
-                  Text(
-                    '${day.reviews}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 140,
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 260),
-                        width: 26,
-                        height: math.max(18, ratio * 120),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          gradient: const LinearGradient(
-                            colors: [AppColors.teal, AppColors.ink],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 520;
+        final barHeight = isCompact ? 120.0 : 140.0;
+        final barWidth = isCompact ? 22.0 : 26.0;
+        final chartWidth = math.max(constraints.maxWidth, days.length * 56.0);
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: chartWidth,
+              child: Row(
+                children: days.map((day) {
+                  final ratio = day.reviews / maxReviews;
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${day.reviews}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: barHeight,
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 260),
+                                width: barWidth,
+                                height: math.max(18, ratio * (barHeight - 20)),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  gradient: const LinearGradient(
+                                    colors: [AppColors.teal, AppColors.ink],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            day.label,
+                            style: const TextStyle(
+                              color: Color(0xFF60707F),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${day.minutes}분',
+                            style: const TextStyle(
+                              color: Color(0xFF60707F),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    day.label,
-                    style: const TextStyle(
-                      color: Color(0xFF60707F),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${day.minutes}분',
-                    style: const TextStyle(
-                      color: Color(0xFF60707F),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+                  );
+                }).toList(),
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1890,12 +2762,36 @@ Widget _deckChip(String label) {
   );
 }
 
+Widget _statusChip(String label, Color color) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(color: color, fontWeight: FontWeight.w800),
+    ),
+  );
+}
+
 String _headline(VocabWord word) {
   final article = word.article?.trim();
   if (article == null || article.isEmpty) {
     return word.german;
   }
   return '$article ${word.german}';
+}
+
+String _grammarNote(VocabWord word) {
+  return word.grammarNote?.trim() ?? '';
+}
+
+bool _isTodayRecommendation(VocabWord word) {
+  return word.isDailyRecommendation &&
+      word.dailyRecommendationDateKey ==
+          dailyRecommendationDateKey(DateTime.now());
 }
 
 String _reviewLabel(int? timestamp) {

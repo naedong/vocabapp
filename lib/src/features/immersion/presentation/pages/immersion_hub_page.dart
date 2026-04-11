@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../../app/responsive_layout.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/config/news_api_config.dart';
 import '../../../../core/database/app_database.dart';
@@ -87,6 +88,7 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
 
   @override
   Widget build(BuildContext context) {
+    final showOverview = MediaQuery.sizeOf(context).width >= 720;
     final featuredResources = <LearningResource>[
       ..._byType(LearningResourceType.news).take(2),
       ..._byType(LearningResourceType.video).take(1),
@@ -98,8 +100,10 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
         children: [
-          const _ImmersionOverviewCard(),
-          const SizedBox(height: 20),
+          if (showOverview) ...const [
+            _ImmersionOverviewCard(),
+            SizedBox(height: 20),
+          ],
           _LiveNewsPanel(
             searchController: _searchController,
             selectedCategory: _selectedCategory,
@@ -249,38 +253,48 @@ class _ImmersionOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [AppColors.ink, AppColors.teal],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PillLabel(label: 'Real-world German'),
-          SizedBox(height: 16),
-          Text(
-            '실전 독일어 뉴스만\n바로 읽을 수 있게 정리했습니다.',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-              letterSpacing: -0.9,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          padding: EdgeInsets.all(layout.cardPadding),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            gradient: const LinearGradient(
+              colors: [AppColors.ink, AppColors.teal],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          SizedBox(height: 12),
-          Text(
-            '검색은 버튼을 눌렀을 때만 호출되고, 같은 요청은 캐시를 우선 사용합니다. 기사에 들어가면 불필요한 꼬리 문구를 제거한 뒤 읽기용 본문으로 보여줍니다.',
-            style: TextStyle(color: Colors.white, fontSize: 15, height: 1.6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _PillLabel(label: 'Real-world German'),
+              const SizedBox(height: 16),
+              Text(
+                '실전 독일어 뉴스만\n바로 읽을 수 있게 정리했습니다.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: layout.isCompact ? 24 : 28,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                  letterSpacing: -0.9,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '검색은 버튼을 눌렀을 때만 호출되고, 같은 요청은 캐시를 우선 사용합니다. 기사에 들어가면 불필요한 꼬리 문구를 제거한 뒤 읽기용 본문으로 보여줍니다.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: layout.bodySize,
+                  height: 1.6,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -312,136 +326,143 @@ class _LiveNewsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '실시간 독일 뉴스',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+
+        return Container(
+          padding: EdgeInsets.all(layout.cardPadding),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(layout.panelRadius),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '같은 요청은 캐시를 먼저 보고, 검색은 버튼을 누르거나 엔터를 칠 때만 실행됩니다.',
-            style: TextStyle(height: 1.55, color: Color(0xFF60707F)),
-          ),
-          if (kIsWeb) ...[
-            const SizedBox(height: 14),
-            const _InfoBanner(
-              icon: Icons.shield_outlined,
-              message:
-                  '웹 빌드에서는 NewsAPI 키가 브라우저에 노출될 수 있습니다. 배포용으로는 서버 프록시를 두는 것을 권장합니다.',
-            ),
-          ],
-          const SizedBox(height: 16),
-          TextField(
-            controller: searchController,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => onSearchSubmitted(),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search_rounded),
-              hintText: '예: Berlin, Wirtschaft, KI, Energie',
-              suffixIcon: IconButton(
-                onPressed: onSearchSubmitted,
-                icon: const Icon(Icons.search_rounded),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: suggestedQueries.map((query) {
-              return ActionChip(
-                label: Text(query),
-                onPressed: () => onSuggestedQuerySelected(query),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: categories.map((category) {
-              return ChoiceChip(
-                label: Text(category.label),
-                selected: category.id == selectedCategory,
-                onSelected: (_) => onCategorySelected(category.id),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              OutlinedButton.icon(
-                onPressed: onSearchSubmitted,
-                icon: const Icon(Icons.travel_explore_rounded),
-                label: const Text('검색'),
+              const Text(
+                '실시간 독일 뉴스',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
               ),
-              const SizedBox(width: 10),
-              OutlinedButton.icon(
-                onPressed: onRefreshRequested,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('새로고침'),
+              const SizedBox(height: 8),
+              const Text(
+                '같은 요청은 캐시를 먼저 보고, 검색은 버튼을 누르거나 엔터를 칠 때만 실행됩니다.',
+                style: TextStyle(height: 1.55, color: Color(0xFF60707F)),
               ),
+              if (kIsWeb) ...[
+                const SizedBox(height: 14),
+                const _InfoBanner(
+                  icon: Icons.shield_outlined,
+                  message:
+                      '웹 빌드에서는 NewsAPI 키가 브라우저에 노출될 수 있습니다. 배포용으로는 서버 프록시를 두는 것을 권장합니다.',
+                ),
+              ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: searchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => onSearchSubmitted(),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: '예: Berlin, Wirtschaft, KI, Energie',
+                  suffixIcon: IconButton(
+                    onPressed: onSearchSubmitted,
+                    icon: const Icon(Icons.search_rounded),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: suggestedQueries.map((query) {
+                  return ActionChip(
+                    label: Text(query),
+                    onPressed: () => onSuggestedQuerySelected(query),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: categories.map((category) {
+                  return ChoiceChip(
+                    label: Text(category.label),
+                    selected: category.id == selectedCategory,
+                    onSelected: (_) => onCategorySelected(category.id),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onSearchSubmitted,
+                    icon: const Icon(Icons.travel_explore_rounded),
+                    label: const Text('검색'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onRefreshRequested,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('새로고침'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              if (!NewsApiConfig.hasKey)
+                const _EmptyPanel(
+                  title: 'News API 키가 비어 있습니다.',
+                  message: '로컬 설정 파일이나 dart-define에 키를 넣으면 실시간 뉴스가 표시됩니다.',
+                )
+              else
+                FutureBuilder<List<NewsArticle>>(
+                  future: articlesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const _LoadingPanel();
+                    }
+
+                    if (snapshot.hasError) {
+                      return _ErrorPanel(
+                        message: '${snapshot.error}',
+                        onRetry: onRefreshRequested,
+                      );
+                    }
+
+                    final articles = snapshot.data ?? const <NewsArticle>[];
+                    if (articles.isEmpty) {
+                      return const _EmptyPanel(
+                        title: '조건에 맞는 기사가 없습니다.',
+                        message: '검색어를 바꾸거나 카테고리를 다시 선택해 보세요.',
+                      );
+                    }
+
+                    return Column(
+                      children: articles
+                          .map(
+                            (article) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _LiveNewsCard(
+                                article: article,
+                                onOpenStudy: () => onOpenArticleStudy(article),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  },
+                ),
             ],
           ),
-          const SizedBox(height: 18),
-          if (!NewsApiConfig.hasKey)
-            const _EmptyPanel(
-              title: 'News API 키가 비어 있습니다.',
-              message: '로컬 설정 파일이나 dart-define에 키를 넣으면 실시간 뉴스가 표시됩니다.',
-            )
-          else
-            FutureBuilder<List<NewsArticle>>(
-              future: articlesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const _LoadingPanel();
-                }
-
-                if (snapshot.hasError) {
-                  return _ErrorPanel(
-                    message: '${snapshot.error}',
-                    onRetry: onRefreshRequested,
-                  );
-                }
-
-                final articles = snapshot.data ?? const <NewsArticle>[];
-                if (articles.isEmpty) {
-                  return const _EmptyPanel(
-                    title: '조건에 맞는 기사가 없습니다.',
-                    message: '검색어를 바꾸거나 카테고리를 다시 선택해 보세요.',
-                  );
-                }
-
-                return Column(
-                  children: articles
-                      .map(
-                        (article) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _LiveNewsCard(
-                            article: article,
-                            onOpenStudy: () => onOpenArticleStudy(article),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                );
-              },
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -564,100 +585,77 @@ class _LiveNewsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (article.imageUrl != null && article.imageUrl!.trim().isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              child: Image.network(
-                article.imageUrl!,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        article.sourceName,
-                        style: const TextStyle(
-                          color: AppColors.teal,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      _publishedLabel(article.publishedAt),
-                      style: const TextStyle(
-                        color: Color(0xFF60707F),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  article.title,
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  article.description,
-                  style: const TextStyle(
-                    height: 1.55,
-                    color: Color(0xFF4C6074),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: onOpenStudy,
-                      icon: const Icon(Icons.menu_book_rounded),
-                      label: const Text('읽으며 공부'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.ink,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openArticle(context),
-                      icon: const Icon(Icons.open_in_new_rounded),
-                      label: const Text('원문 열기'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+        final compact = layout.isCompact;
+        final hasImage =
+            article.imageUrl != null && article.imageUrl!.trim().isNotEmpty;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
           ),
-        ],
-      ),
+          child: compact
+              ? Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (hasImage)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.network(
+                            article.imageUrl!,
+                            width: 92,
+                            height: 116,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      if (hasImage) const SizedBox(width: 14),
+                      Expanded(
+                        child: _ArticleCardContent(
+                          article: article,
+                          compact: true,
+                          onOpenStudy: onOpenStudy,
+                          onOpenArticle: () => _openArticle(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hasImage)
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                        child: Image.network(
+                          article.imageUrl!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    Padding(
+                      padding: EdgeInsets.all(layout.cardPadding),
+                      child: _ArticleCardContent(
+                        article: article,
+                        compact: false,
+                        onOpenStudy: onOpenStudy,
+                        onOpenArticle: () => _openArticle(context),
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -674,6 +672,107 @@ class _LiveNewsCard extends StatelessWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('현재 환경에서 기사 링크를 열지 못했습니다.')));
+  }
+}
+
+class _ArticleCardContent extends StatelessWidget {
+  const _ArticleCardContent({
+    required this.article,
+    required this.compact,
+    required this.onOpenStudy,
+    required this.onOpenArticle,
+  });
+
+  final NewsArticle article;
+  final bool compact;
+  final Future<void> Function() onOpenStudy;
+  final VoidCallback onOpenArticle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                article.sourceName,
+                style: TextStyle(
+                  color: AppColors.teal,
+                  fontWeight: FontWeight.w700,
+                  fontSize: compact ? 12 : 14,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _publishedLabel(article.publishedAt),
+              style: TextStyle(
+                color: const Color(0xFF60707F),
+                fontWeight: FontWeight.w600,
+                fontSize: compact ? 12 : 13,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          article.title,
+          style: TextStyle(
+            fontSize: compact ? 16 : 21,
+            fontWeight: FontWeight.w800,
+            color: AppColors.ink,
+            height: 1.28,
+          ),
+          maxLines: compact ? 3 : null,
+          overflow: compact ? TextOverflow.ellipsis : null,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          article.description,
+          style: TextStyle(
+            height: 1.5,
+            color: const Color(0xFF4C6074),
+            fontSize: compact ? 13 : 14,
+          ),
+          maxLines: compact ? 4 : null,
+          overflow: compact ? TextOverflow.ellipsis : null,
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: onOpenStudy,
+              icon: const Icon(Icons.menu_book_rounded),
+              label: Text(compact ? '학습' : '읽으며 공부'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.ink,
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 14 : 18,
+                  vertical: compact ? 12 : 16,
+                ),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: onOpenArticle,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('원문 열기'),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 12 : 16,
+                  vertical: compact ? 12 : 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 

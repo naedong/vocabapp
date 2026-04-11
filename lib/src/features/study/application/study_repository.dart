@@ -21,6 +21,9 @@ class StudyRepository {
     required String exampleSentence,
     required String exampleTranslation,
     required String deck,
+    String? grammarNote,
+    bool isDailyRecommendation = false,
+    DateTime? dailyRecommendationDate,
   }) {
     return database.addWord(
       german: german,
@@ -33,6 +36,9 @@ class StudyRepository {
       exampleSentence: exampleSentence,
       exampleTranslation: exampleTranslation,
       deck: deck,
+      grammarNote: grammarNote,
+      isDailyRecommendation: isDailyRecommendation,
+      dailyRecommendationDate: dailyRecommendationDate,
     );
   }
 

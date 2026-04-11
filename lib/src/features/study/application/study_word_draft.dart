@@ -10,6 +10,7 @@ class StudyWordDraft {
     required this.exampleSentence,
     required this.exampleTranslation,
     this.article,
+    this.grammarNote,
     this.deck = '실전 읽기',
     this.ttsLocale = defaultVoiceLocaleCode,
   });
@@ -22,6 +23,7 @@ class StudyWordDraft {
   final String exampleSentence;
   final String exampleTranslation;
   final String? article;
+  final String? grammarNote;
   final String deck;
   final String ttsLocale;
 }

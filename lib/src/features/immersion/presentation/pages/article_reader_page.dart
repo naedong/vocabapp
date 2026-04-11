@@ -1187,16 +1187,21 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
             style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
           ),
           const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.background.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Text(
-              widget.suggestion.grammarHint,
-              style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
+          ..._resolvedGrammarNotes().map(
+            (note) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.background.withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Text(
+                  note,
+                  style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -1529,6 +1534,33 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
         ),
       ),
     );
+  }
+
+  List<String> _resolvedGrammarNotes() {
+    final notes = <String>[];
+    final seen = <String>{};
+
+    void addNote(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed == null || trimmed.isEmpty) {
+        return;
+      }
+      final key = trimmed.toLowerCase();
+      if (seen.add(key)) {
+        notes.add(trimmed);
+      }
+    }
+
+    for (final note
+        in _dictionarySuggestion?.grammarNotes ?? const <String>[]) {
+      addNote(note);
+    }
+
+    if (notes.isEmpty) {
+      addNote(widget.suggestion.grammarHint);
+    }
+
+    return notes;
   }
 
   String _initialMeaning() {

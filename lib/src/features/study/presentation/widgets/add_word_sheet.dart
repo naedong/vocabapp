@@ -18,6 +18,8 @@ class AddWordSheet extends StatefulWidget {
     required this.repository,
     required this.pronunciationService,
     this.initialDraft,
+    this.defaultDeck = 'My Deck',
+    this.initialIsDailyRecommendation = false,
     this.title = '새 단어 추가',
     this.subtitle = '사전 결과를 먼저 채워 두고, 필요한 부분만 손보는 방식으로 입력 흐름을 다듬었습니다.',
     this.submitLabel = '단어 저장',
@@ -27,6 +29,8 @@ class AddWordSheet extends StatefulWidget {
   final StudyRepository repository;
   final PronunciationService pronunciationService;
   final StudyWordDraft? initialDraft;
+  final String defaultDeck;
+  final bool initialIsDailyRecommendation;
   final String title;
   final String subtitle;
   final String submitLabel;
@@ -46,6 +50,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
   late final TextEditingController _deckController;
   late final TextEditingController _exampleController;
   late final TextEditingController _exampleTranslationController;
+  late final TextEditingController _grammarController;
 
   Timer? _lookupDebounce;
 
@@ -53,6 +58,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
   bool _isSpeaking = false;
   bool _isLookingUp = false;
   bool _isLookupStale = false;
+  bool _markAsTodayRecommendation = false;
   String? _lookupError;
   String? _lastLookedUpWord;
   DictionaryAutoFill? _lookupSuggestion;
@@ -72,14 +78,18 @@ class _AddWordSheetState extends State<AddWordSheet> {
     _partOfSpeechController = TextEditingController(
       text: draft?.partOfSpeech ?? 'noun',
     );
-    _deckController = TextEditingController(text: draft?.deck ?? 'My Deck');
+    _deckController = TextEditingController(
+      text: draft?.deck ?? widget.defaultDeck,
+    );
     _exampleController = TextEditingController(
       text: draft?.exampleSentence ?? '',
     );
     _exampleTranslationController = TextEditingController(
       text: draft?.exampleTranslation ?? '',
     );
+    _grammarController = TextEditingController(text: draft?.grammarNote ?? '');
     _selectedTtsLocale = draft?.ttsLocale ?? defaultVoiceLocaleCode;
+    _markAsTodayRecommendation = widget.initialIsDailyRecommendation;
     _germanController.addListener(_handleGermanChanged);
 
     if (_germanController.text.trim().isNotEmpty) {
@@ -104,6 +114,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
     _deckController.dispose();
     _exampleController.dispose();
     _exampleTranslationController.dispose();
+    _grammarController.dispose();
     super.dispose();
   }
 
@@ -320,6 +331,44 @@ class _AddWordSheetState extends State<AddWordSheet> {
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _section(
+                  title: '문법 포인트',
+                  subtitle:
+                      '사전에 품사, 문법 태그, 활용형이 있으면 자동으로 요약해서 가져오고, 필요하면 직접 덧붙일 수 있습니다.',
+                  children: [
+                    _field(
+                      controller: _grammarController,
+                      label: '문법 메모',
+                      hintText: '관사, 격, 활용형, 어순 포인트를 적어 두세요',
+                      minLines: 3,
+                      maxLines: 5,
+                    ),
+                    const SizedBox(height: 14),
+                    SwitchListTile.adaptive(
+                      value: _markAsTodayRecommendation,
+                      contentPadding: EdgeInsets.zero,
+                      activeThumbColor: AppColors.ink,
+                      title: const Text(
+                        '오늘의 추천 단어로 등록',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        '홈 대시보드의 오늘 추천 섹션에 바로 나타나서 매일 따로 모아볼 수 있습니다.',
+                        style: TextStyle(
+                          height: 1.45,
+                          color: Color(0xFF5E6F7C),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _markAsTodayRecommendation = value);
+                      },
                     ),
                   ],
                 ),
@@ -577,6 +626,37 @@ class _AddWordSheetState extends State<AddWordSheet> {
           fallbackNote,
           style: const TextStyle(height: 1.5, color: Color(0xFF5E6F7C)),
         ),
+        if (suggestion.grammarNotes.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            '문법 포인트',
+            style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
+          ),
+          const SizedBox(height: 8),
+          ...suggestion.grammarNotes
+              .take(3)
+              .map(
+                (note) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(
+                      note,
+                      style: const TextStyle(
+                        height: 1.5,
+                        color: Color(0xFF5E6F7C),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+        ],
         const SizedBox(height: 10),
         Wrap(
           spacing: 10,
@@ -792,6 +872,7 @@ class _AddWordSheetState extends State<AddWordSheet> {
     _exampleTranslationController.text = _preferredExampleTranslation(
       suggestion,
     );
+    _grammarController.text = _preferredGrammarNote(suggestion);
   }
 
   String _preferredExampleSentence(DictionaryAutoFill suggestion) {
@@ -809,6 +890,14 @@ class _AddWordSheetState extends State<AddWordSheet> {
       return initialTranslation;
     }
     return suggestion.exampleTranslation;
+  }
+
+  String _preferredGrammarNote(DictionaryAutoFill suggestion) {
+    final initialGrammar = widget.initialDraft?.grammarNote?.trim() ?? '';
+    if (_lastLookedUpWord == null && initialGrammar.isNotEmpty) {
+      return initialGrammar;
+    }
+    return suggestion.grammarNote;
   }
 
   String? _initialContextExample() {
@@ -837,6 +926,8 @@ class _AddWordSheetState extends State<AddWordSheet> {
       exampleSentence: _exampleController.text,
       exampleTranslation: _exampleTranslationController.text,
       deck: _deckController.text,
+      grammarNote: _grammarController.text,
+      isDailyRecommendation: _markAsTodayRecommendation,
     );
 
     if (!mounted) {
@@ -845,7 +936,13 @@ class _AddWordSheetState extends State<AddWordSheet> {
 
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${_germanController.text}를 추가했어요.')),
+      SnackBar(
+        content: Text(
+          _markAsTodayRecommendation
+              ? '${_germanController.text}를 추가하고 오늘 추천에도 올려두었어요.'
+              : '${_germanController.text}를 추가했어요.',
+        ),
+      ),
     );
   }
 

@@ -20,6 +20,7 @@ class VocabWords extends Table {
       text().withDefault(const Constant(defaultVoiceLocaleCode))();
   TextColumn get exampleSentence => text()();
   TextColumn get exampleTranslation => text()();
+  TextColumn get grammarNote => text().nullable()();
   TextColumn get deck => text().withDefault(const Constant('Starter'))();
   IntColumn get difficulty => integer().withDefault(const Constant(1))();
   IntColumn get mastery => integer().withDefault(const Constant(0))();
@@ -27,6 +28,9 @@ class VocabWords extends Table {
   IntColumn get timesReviewed => integer().withDefault(const Constant(0))();
   IntColumn get nextReviewAt => integer().nullable()();
   IntColumn get lastReviewedAt => integer().nullable()();
+  BoolColumn get isDailyRecommendation =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get dailyRecommendationDateKey => text().nullable()();
   IntColumn get createdAt =>
       integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
 }
@@ -96,7 +100,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +115,11 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await m.createTable(newsCacheEntries);
+      }
+      if (from < 5) {
+        await m.addColumn(vocabWords, vocabWords.grammarNote);
+        await m.addColumn(vocabWords, vocabWords.isDailyRecommendation);
+        await m.addColumn(vocabWords, vocabWords.dailyRecommendationDateKey);
       }
     },
     beforeOpen: (details) async {
@@ -166,8 +175,14 @@ class AppDatabase extends _$AppDatabase {
     required String exampleSentence,
     required String exampleTranslation,
     required String deck,
+    String? grammarNote,
+    bool isDailyRecommendation = false,
+    DateTime? dailyRecommendationDate,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final recommendationDate = isDailyRecommendation
+        ? (dailyRecommendationDate ?? DateTime.now())
+        : null;
 
     await into(vocabWords).insert(
       VocabWordsCompanion.insert(
@@ -186,6 +201,7 @@ class AppDatabase extends _$AppDatabase {
         exampleTranslation: exampleTranslation.trim().isEmpty
             ? '${german.trim()}는 중요한 표현이에요.'
             : exampleTranslation.trim(),
+        grammarNote: Value(_nullableText(grammarNote)),
         deck: deck.trim().isEmpty ? const Value('My Deck') : Value(deck.trim()),
         difficulty: const Value(1),
         mastery: const Value(0),
@@ -193,6 +209,12 @@ class AppDatabase extends _$AppDatabase {
         timesReviewed: const Value(0),
         nextReviewAt: Value(now),
         createdAt: Value(now),
+        isDailyRecommendation: Value(isDailyRecommendation),
+        dailyRecommendationDateKey: Value(
+          recommendationDate == null
+              ? null
+              : dailyRecommendationDateKey(recommendationDate),
+        ),
       ),
     );
   }
@@ -459,6 +481,7 @@ CREATE TABLE IF NOT EXISTS news_cache_entries (
         ttsLocale: Value(seed.ttsLocale),
         exampleSentence: seed.exampleSentence,
         exampleTranslation: seed.exampleTranslation,
+        grammarNote: Value(_nullableText(seed.grammarNote)),
         deck: Value(seed.deck),
         difficulty: Value(seed.difficulty),
         mastery: Value(seed.mastery),
@@ -466,6 +489,14 @@ CREATE TABLE IF NOT EXISTS news_cache_entries (
         timesReviewed: Value(seed.timesReviewed),
         nextReviewAt: Value(nextReviewAt.millisecondsSinceEpoch),
         lastReviewedAt: Value(lastReviewed.millisecondsSinceEpoch),
+        isDailyRecommendation: Value(seed.isDailyRecommendation),
+        dailyRecommendationDateKey: Value(
+          seed.isDailyRecommendation
+              ? dailyRecommendationDateKey(
+                  now.subtract(Duration(days: seed.dailyRecommendationDaysAgo)),
+                )
+              : null,
+        ),
         createdAt: Value(createdAt.millisecondsSinceEpoch),
       );
     }).toList();
@@ -528,6 +559,14 @@ Value<String?> _optionalText(String? value) {
   return Value(trimmed);
 }
 
+String dailyRecommendationDateKey(DateTime date) {
+  final normalized = date.toLocal();
+  final year = normalized.year.toString().padLeft(4, '0');
+  final month = normalized.month.toString().padLeft(2, '0');
+  final day = normalized.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
 String? _nullableText(String? value) {
   final trimmed = value?.trim();
   if (trimmed == null || trimmed.isEmpty) {
@@ -536,10 +575,7 @@ String? _nullableText(String? value) {
   return trimmed;
 }
 
-String _initialReadingScript({
-  required String title,
-  String? description,
-}) {
+String _initialReadingScript({required String title, String? description}) {
   final parts = <String>[
     title.trim(),
     if (description != null && description.trim().isNotEmpty)
@@ -559,11 +595,14 @@ final List<_SeedWord> _seedWords = [
     pronunciation: '알탁',
     exampleSentence: 'Mein Alltag ist im Moment ziemlich ruhig.',
     exampleTranslation: '요즘 내 일상은 꽤 차분하다.',
+    grammarNote: '명사는 der와 함께 외우면 남성 명사라는 점을 같이 기억하기 좋습니다.',
     deck: 'Starter',
     difficulty: 1,
     mastery: 3,
     bookmarked: true,
     timesReviewed: 8,
+    isDailyRecommendation: true,
+    dailyRecommendationDaysAgo: 0,
     createdDaysAgo: 14,
     lastReviewedHoursAgo: 20,
     nextReviewInHours: -2,
@@ -578,6 +617,7 @@ final List<_SeedWord> _seedWords = [
     ttsLocale: 'de-AT',
     exampleSentence: 'Die Wohnung liegt direkt am Park.',
     exampleTranslation: '그 아파트는 공원 바로 옆에 있다.',
+    grammarNote: 'Wohnung은 die가 붙는 여성 명사입니다. 관사와 함께 반복해 두면 성 구분이 쉬워집니다.',
     deck: 'Starter',
     difficulty: 1,
     mastery: 4,
@@ -595,6 +635,7 @@ final List<_SeedWord> _seedWords = [
     pronunciation: '레어넨',
     exampleSentence: 'Ich lerne jeden Morgen drei neue Woerter.',
     exampleTranslation: '나는 매일 아침 새 단어 세 개를 공부한다.',
+    grammarNote: 'lernen은 동사 원형입니다. ich lerne처럼 인칭에 따라 어미가 바뀌는 점을 같이 보세요.',
     deck: 'Starter',
     difficulty: 1,
     mastery: 2,
@@ -776,11 +817,14 @@ class _SeedWord {
     this.ttsLocale = defaultVoiceLocaleCode,
     required this.exampleSentence,
     required this.exampleTranslation,
+    this.grammarNote,
     required this.deck,
     required this.difficulty,
     required this.mastery,
     required this.bookmarked,
     required this.timesReviewed,
+    this.isDailyRecommendation = false,
+    this.dailyRecommendationDaysAgo = 0,
     required this.createdDaysAgo,
     required this.lastReviewedHoursAgo,
     required this.nextReviewInHours,
@@ -795,11 +839,14 @@ class _SeedWord {
   final String ttsLocale;
   final String exampleSentence;
   final String exampleTranslation;
+  final String? grammarNote;
   final String deck;
   final int difficulty;
   final int mastery;
   final bool bookmarked;
   final int timesReviewed;
+  final bool isDailyRecommendation;
+  final int dailyRecommendationDaysAgo;
   final int createdDaysAgo;
   final int lastReviewedHoursAgo;
   final int nextReviewInHours;

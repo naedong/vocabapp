@@ -42,6 +42,7 @@ class ReadingWordSuggestion {
       meaningKo: resolvedMeaningKo,
       pronunciation: pronunciation,
       partOfSpeech: partOfSpeech,
+      grammarNote: grammarHint,
       article: article,
       exampleSentence: contextSnippet,
       exampleTranslation: resolvedMeaningKo,
@@ -132,6 +133,11 @@ class ReadingWordSuggester {
   }
 
   static String _grammarHintForKnownWord(VocabWord word) {
+    final savedGrammarNote = word.grammarNote?.trim();
+    if (savedGrammarNote != null && savedGrammarNote.isNotEmpty) {
+      return savedGrammarNote;
+    }
+
     final part = word.partOfSpeech.toLowerCase();
     if (part.contains('noun')) {
       return '${word.german}는 명사로 보입니다. 관사와 함께 외우면 독일어의 성과 격 변화를 같이 익힐 수 있습니다.';

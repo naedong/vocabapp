@@ -5,6 +5,7 @@
 # Flutter/Dart/Pub related
 **/doc/api/
 .dart_tool/
+.dart-tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .fvm/flutter_sdk
@@ -229,3 +230,4 @@ web/drift_worker.js.map
 
 # Local API secrets
 lib/src/core/config/news_api_secrets.dart
+lib/src/core/config/openai_secrets.dart
