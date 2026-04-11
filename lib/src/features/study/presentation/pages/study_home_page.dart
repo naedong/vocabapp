@@ -708,8 +708,7 @@ class _CollectionPage extends StatelessWidget {
             color: AppColors.teal,
             eyebrow: 'Word library',
             title: '단어 컬렉션을 덱별로\n차분하게 쌓아보세요.',
-            body:
-                '검색과 덱 필터로 원하는 주제를 빠르게 찾고, 중요한 카드는 북마크로 다시 복습 큐에 불러올 수 있습니다.',
+            body: '검색과 덱 필터로 원하는 주제를 빠르게 찾고, 중요한 카드는 북마크로 다시 복습 큐에 불러올 수 있습니다.',
           ),
           const SizedBox(height: 20),
         ],
@@ -873,8 +872,7 @@ class _InsightsPage extends StatelessWidget {
                 color: AppColors.gold,
                 eyebrow: 'Learning pulse',
                 title: '조용하지만 분명하게,\n학습 리듬을 숫자로 확인하세요.',
-                body:
-                    '최근 7일 학습량과 덱별 숙련도를 함께 보며 무엇을 더 끌어올려야 할지 빠르게 판단할 수 있습니다.',
+                body: '최근 7일 학습량과 덱별 숙련도를 함께 보며 무엇을 더 끌어올려야 할지 빠르게 판단할 수 있습니다.',
               ),
               SizedBox(height: 20),
             ],
@@ -1183,10 +1181,8 @@ class _PageIntroHeader extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style:
-                            Theme.of(context).textTheme.displaySmall?.copyWith(
-                              fontSize: layout.isCompact ? 26 : 30,
-                            ),
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(fontSize: layout.isCompact ? 26 : 30),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1599,7 +1595,9 @@ class _HeroBanner extends StatelessWidget {
         return Container(
           padding: EdgeInsets.all(compact ? 18 : layout.cardPadding),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(compact ? 24 : layout.panelRadius),
+            borderRadius: BorderRadius.circular(
+              compact ? 24 : layout.panelRadius,
+            ),
             gradient: LinearGradient(
               colors: [color, color.withValues(alpha: 0.82)],
               begin: Alignment.topLeft,

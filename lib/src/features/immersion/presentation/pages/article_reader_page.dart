@@ -801,7 +801,9 @@ class _ArticleHeroCard extends StatelessWidget {
                   _MetaPill(label: '단어 체크 $wordNoteCount개'),
                   _MetaPill(label: '문법 체크 $grammarNoteCount개'),
                   _MetaPill(
-                    label: article.requiresSourceEnrichment ? '요약 본문' : '정리된 본문',
+                    label: article.requiresSourceEnrichment
+                        ? '요약 본문'
+                        : '정리된 본문',
                   ),
                 ],
               ),
@@ -838,7 +840,8 @@ class _ArticleHeroCard extends StatelessWidget {
                     icon: const Icon(Icons.volume_up_rounded),
                     label: const Text('제목 듣기'),
                   ),
-                  if (article.requiresSourceEnrichment || sourceSyncMessage != null)
+                  if (article.requiresSourceEnrichment ||
+                      sourceSyncMessage != null)
                     OutlinedButton.icon(
                       onPressed: isSourceSyncing ? null : onRefreshFromSource,
                       icon: Icon(
@@ -1112,219 +1115,242 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+        final compact = layout.maxWidth < 460;
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(compact ? 16 : 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(compact ? 22 : 24),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.ink.withValues(alpha: 0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  widget.token.surface,
-                  style: const TextStyle(
-                    fontSize: 24,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.token.surface,
+                      style: TextStyle(
+                        fontSize: compact ? 20 : 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: widget.onClose,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              Text(
+                widget.savedNote == null
+                    ? '현재 문단에서 선택한 단어입니다.'
+                    : '이미 모르는 단어 메모에 저장되어 있습니다.',
+                style: TextStyle(
+                  color: const Color(0xFF60707F),
+                  fontWeight: FontWeight.w600,
+                  fontSize: compact ? 13 : 14,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (widget.knownMatches.isNotEmpty) ...[
+                const Text(
+                  '현재 단어장에 있는 뜻',
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: widget.onClose,
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          Text(
-            widget.savedNote == null
-                ? '현재 문단에서 선택한 단어입니다.'
-                : '이미 모르는 단어 메모에 저장되어 있습니다.',
-            style: const TextStyle(
-              color: Color(0xFF60707F),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 14),
-          if (widget.knownMatches.isNotEmpty) ...[
-            const Text(
-              '현재 단어장에 있는 뜻',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...widget.knownMatches.map(
-              (word) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.teal.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Text(
-                    '${word.german}  |  ${word.meaningKo} / ${word.meaningEn}',
-                    style: const TextStyle(
-                      height: 1.5,
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w600,
+                const SizedBox(height: 10),
+                ...widget.knownMatches.map(
+                  (word) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.teal.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(
+                        '${word.german}  |  ${word.meaningKo} / ${word.meaningEn}',
+                        style: const TextStyle(
+                          height: 1.5,
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 8),
+              ] else ...[
+                const Text(
+                  '아직 단어장에 등록된 뜻이 없습니다.',
+                  style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              _buildDictionaryPanel(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _meaningController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: '뜻 수정 / 메모',
+                  hintText: '자동 제안 뜻을 바꾸거나 기억 포인트를 적어 둘 수 있어요.',
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-          ] else ...[
-            const Text(
-              '아직 단어장에 등록된 뜻이 없습니다.',
-              style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
-            ),
-            const SizedBox(height: 12),
-          ],
-          _buildDictionaryPanel(),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _meaningController,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: '뜻 수정 / 메모',
-              hintText: '자동 제안 뜻을 바꾸거나 기억 포인트를 적어 둘 수 있어요.',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.background.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Text(
-              '문맥: ${widget.contextSnippet}',
-              style: const TextStyle(height: 1.55, color: Color(0xFF5F6F7C)),
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            '이 단어와 관련된 문법 설명',
-            style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
-          ),
-          const SizedBox(height: 10),
-          ..._resolvedGrammarNotes().map(
-            (note) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Container(
+              const SizedBox(height: 12),
+              Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.background.withValues(alpha: 0.88),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
-                  note,
-                  style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
+                  '문맥: ${widget.contextSnippet}',
+                  style: const TextStyle(
+                    height: 1.55,
+                    color: Color(0xFF5F6F7C),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (widget.relatedInsights.isEmpty)
-            const Text(
-              '이 문장 주변에서 대표 문법 패턴은 아직 감지되지 않았습니다.',
-              style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
-            )
-          else
-            Column(
-              children: widget.relatedInsights.map((insight) {
-                return Padding(
+              const SizedBox(height: 14),
+              const Text(
+                '이 단어와 관련된 문법 설명',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ..._resolvedGrammarNotes().map(
+                (note) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.gold.withValues(alpha: 0.12),
+                      color: AppColors.background.withValues(alpha: 0.88),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          insight.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          insight.explanation,
-                          style: const TextStyle(
-                            height: 1.5,
-                            color: Color(0xFF60707F),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      note,
+                      style: const TextStyle(
+                        height: 1.5,
+                        color: Color(0xFF60707F),
+                      ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => widget.pronunciationService.speak(
-                  widget.token.surface,
-                  locale: 'de-DE',
                 ),
-                icon: const Icon(Icons.volume_up_rounded),
-                label: const Text('단어 듣기'),
               ),
-              OutlinedButton.icon(
-                onPressed: () => widget.pronunciationService.speak(
-                  widget.contextSnippet,
-                  locale: 'de-DE',
+              const SizedBox(height: 10),
+              if (widget.relatedInsights.isEmpty)
+                const Text(
+                  '이 문장 주변에서 대표 문법 패턴은 아직 감지되지 않았습니다.',
+                  style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
+                )
+              else
+                Column(
+                  children: widget.relatedInsights.map((insight) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              insight.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              insight.explanation,
+                              style: const TextStyle(
+                                height: 1.5,
+                                color: Color(0xFF60707F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-                icon: const Icon(Icons.record_voice_over_rounded),
-                label: const Text('문장 듣기'),
-              ),
-              FilledButton.icon(
-                onPressed: _isSaving ? null : _toggleSaved,
-                icon: Icon(
-                  widget.savedNote == null
-                      ? Icons.bookmark_add_rounded
-                      : Icons.bookmark_remove_rounded,
-                ),
-                label: Text(widget.savedNote == null ? '모르는 단어 저장' : '저장 해제'),
-                style: FilledButton.styleFrom(backgroundColor: AppColors.ink),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: _isSaving ? null : _addToStudy,
-                icon: const Icon(Icons.school_rounded),
-                label: const Text('학습 카드로 저장'),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => widget.pronunciationService.speak(
+                      widget.token.surface,
+                      locale: 'de-DE',
+                    ),
+                    icon: const Icon(Icons.volume_up_rounded),
+                    label: const Text('단어 듣기'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => widget.pronunciationService.speak(
+                      widget.contextSnippet,
+                      locale: 'de-DE',
+                    ),
+                    icon: const Icon(Icons.record_voice_over_rounded),
+                    label: const Text('문장 듣기'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _isSaving ? null : _toggleSaved,
+                    icon: Icon(
+                      widget.savedNote == null
+                          ? Icons.bookmark_add_rounded
+                          : Icons.bookmark_remove_rounded,
+                    ),
+                    label: Text(
+                      widget.savedNote == null ? '모르는 단어 저장' : '저장 해제',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.ink,
+                    ),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _isSaving ? null : _addToStudy,
+                    icon: const Icon(Icons.school_rounded),
+                    label: const Text('학습 카드로 저장'),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1368,25 +1394,9 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '실시간 사전 추천',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-                Text(
-                  dictionarySuggestion.sourceLabel,
-                  style: const TextStyle(
-                    color: Color(0xFF60707F),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+            _dictionaryPanelHeader(
+              title: '실시간 사전 추천',
+              trailing: dictionarySuggestion.sourceLabel,
             ),
             const SizedBox(height: 8),
             Text(
@@ -1479,25 +1489,11 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _dictionaryNotFound ? '실시간 사전' : '자동 제안',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              Text(
-                _dictionaryNotFound ? '사전 미등록' : widget.suggestion.sourceLabel,
-                style: const TextStyle(
-                  color: Color(0xFF60707F),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          _dictionaryPanelHeader(
+            title: _dictionaryNotFound ? '실시간 사전' : '자동 제안',
+            trailing: _dictionaryNotFound
+                ? '사전 미등록'
+                : widget.suggestion.sourceLabel,
           ),
           const SizedBox(height: 8),
           if (_dictionaryNotFound) ...[
@@ -1555,6 +1551,66 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _dictionaryPanelHeader({
+    required String title,
+    required String trailing,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 430;
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                trailing,
+                style: const TextStyle(
+                  color: Color(0xFF60707F),
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                trailing,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: Color(0xFF60707F),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

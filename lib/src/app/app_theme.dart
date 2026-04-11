@@ -96,9 +96,12 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 74,
+        height: 68,
         backgroundColor: Colors.white.withValues(alpha: 0.82),
         indicatorColor: AppColors.ink.withValues(alpha: 0.09),
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.ink,

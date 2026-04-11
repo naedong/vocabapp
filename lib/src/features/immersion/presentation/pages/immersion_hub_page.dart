@@ -329,6 +329,149 @@ class _LiveNewsPanel extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final layout = ResponsiveLayout.fromConstraints(constraints);
+        final controls = [
+          const Text(
+            '실시간 독일 뉴스',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '같은 요청은 캐시를 먼저 보고, 검색은 버튼을 누르거나 엔터를 칠 때만 실행됩니다.',
+            style: TextStyle(height: 1.55, color: Color(0xFF60707F)),
+          ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 14),
+            const _InfoBanner(
+              icon: Icons.shield_outlined,
+              message:
+                  '웹 빌드에서는 NewsAPI 키가 브라우저에 노출될 수 있습니다. 배포용으로는 서버 프록시를 두는 것을 권장합니다.',
+            ),
+          ],
+          const SizedBox(height: 16),
+          TextField(
+            controller: searchController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onSearchSubmitted(),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search_rounded),
+              hintText: '예: Berlin, Wirtschaft, KI, Energie',
+              suffixIcon: IconButton(
+                onPressed: onSearchSubmitted,
+                icon: const Icon(Icons.search_rounded),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: suggestedQueries.map((query) {
+              return ActionChip(
+                label: Text(query),
+                onPressed: () => onSuggestedQuerySelected(query),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: categories.map((category) {
+              return ChoiceChip(
+                label: Text(category.label),
+                selected: category.id == selectedCategory,
+                onSelected: (_) => onCategorySelected(category.id),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onSearchSubmitted,
+                icon: const Icon(Icons.travel_explore_rounded),
+                label: const Text('검색'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onRefreshRequested,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('새로고침'),
+              ),
+            ],
+          ),
+        ];
+
+        final articleSection = !NewsApiConfig.hasKey
+            ? const _EmptyPanel(
+                title: 'News API 키가 비어 있습니다.',
+                message: '로컬 설정 파일이나 dart-define에 키를 넣으면 실시간 뉴스가 표시됩니다.',
+              )
+            : FutureBuilder<List<NewsArticle>>(
+                future: articlesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const _LoadingPanel();
+                  }
+
+                  if (snapshot.hasError) {
+                    return _ErrorPanel(
+                      message: '${snapshot.error}',
+                      onRetry: onRefreshRequested,
+                    );
+                  }
+
+                  final articles = snapshot.data ?? const <NewsArticle>[];
+                  if (articles.isEmpty) {
+                    return const _EmptyPanel(
+                      title: '조건에 맞는 기사가 없습니다.',
+                      message: '검색어를 바꾸거나 카테고리를 다시 선택해 보세요.',
+                    );
+                  }
+
+                  return Column(
+                    children: articles
+                        .map(
+                          (article) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _LiveNewsCard(
+                              article: article,
+                              onOpenStudy: () => onOpenArticleStudy(article),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              );
+
+        if (layout.isCompact) {
+          return Column(
+            children: [
+              Container(
+                padding: EdgeInsets.all(layout.cardPadding),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(layout.panelRadius),
+                  border: Border.all(
+                    color: AppColors.ink.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: controls,
+                ),
+              ),
+              const SizedBox(height: 16),
+              articleSection,
+            ],
+          );
+        }
 
         return Container(
           padding: EdgeInsets.all(layout.cardPadding),
@@ -339,127 +482,7 @@ class _LiveNewsPanel extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '실시간 독일 뉴스',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '같은 요청은 캐시를 먼저 보고, 검색은 버튼을 누르거나 엔터를 칠 때만 실행됩니다.',
-                style: TextStyle(height: 1.55, color: Color(0xFF60707F)),
-              ),
-              if (kIsWeb) ...[
-                const SizedBox(height: 14),
-                const _InfoBanner(
-                  icon: Icons.shield_outlined,
-                  message:
-                      '웹 빌드에서는 NewsAPI 키가 브라우저에 노출될 수 있습니다. 배포용으로는 서버 프록시를 두는 것을 권장합니다.',
-                ),
-              ],
-              const SizedBox(height: 16),
-              TextField(
-                controller: searchController,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => onSearchSubmitted(),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: '예: Berlin, Wirtschaft, KI, Energie',
-                  suffixIcon: IconButton(
-                    onPressed: onSearchSubmitted,
-                    icon: const Icon(Icons.search_rounded),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: suggestedQueries.map((query) {
-                  return ActionChip(
-                    label: Text(query),
-                    onPressed: () => onSuggestedQuerySelected(query),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: categories.map((category) {
-                  return ChoiceChip(
-                    label: Text(category.label),
-                    selected: category.id == selectedCategory,
-                    onSelected: (_) => onCategorySelected(category.id),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: onSearchSubmitted,
-                    icon: const Icon(Icons.travel_explore_rounded),
-                    label: const Text('검색'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: onRefreshRequested,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('새로고침'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              if (!NewsApiConfig.hasKey)
-                const _EmptyPanel(
-                  title: 'News API 키가 비어 있습니다.',
-                  message: '로컬 설정 파일이나 dart-define에 키를 넣으면 실시간 뉴스가 표시됩니다.',
-                )
-              else
-                FutureBuilder<List<NewsArticle>>(
-                  future: articlesFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return const _LoadingPanel();
-                    }
-
-                    if (snapshot.hasError) {
-                      return _ErrorPanel(
-                        message: '${snapshot.error}',
-                        onRetry: onRefreshRequested,
-                      );
-                    }
-
-                    final articles = snapshot.data ?? const <NewsArticle>[];
-                    if (articles.isEmpty) {
-                      return const _EmptyPanel(
-                        title: '조건에 맞는 기사가 없습니다.',
-                        message: '검색어를 바꾸거나 카테고리를 다시 선택해 보세요.',
-                      );
-                    }
-
-                    return Column(
-                      children: articles
-                          .map(
-                            (article) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _LiveNewsCard(
-                                article: article,
-                                onOpenStudy: () => onOpenArticleStudy(article),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-            ],
+            children: [...controls, const SizedBox(height: 18), articleSection],
           ),
         );
       },
