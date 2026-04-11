@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../../app/responsive_layout.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/logging/app_logger.dart';
@@ -254,9 +255,17 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                     sentenceSnippet: _selectedWord!.contextSnippet,
                     allInsights: grammarInsights,
                   );
+            final layout = ResponsiveLayout.fromWidth(
+              MediaQuery.sizeOf(context).width,
+            );
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: EdgeInsets.fromLTRB(
+                layout.isCompact ? 12 : 16,
+                8,
+                layout.isCompact ? 12 : 16,
+                32,
+              ),
               children: [
                 _ArticleHeroCard(
                   article: widget.article,
@@ -740,96 +749,116 @@ class _ArticleHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            article.sourceName,
-            style: const TextStyle(
-              color: AppColors.teal,
-              fontWeight: FontWeight.w700,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = ResponsiveLayout.fromConstraints(constraints);
+        final compact = layout.isCompact;
+
+        return Container(
+          padding: EdgeInsets.all(compact ? 18 : 22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(compact ? 24 : 28),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
           ),
-          const SizedBox(height: 10),
-          Text(
-            article.title,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            article.description,
-            style: const TextStyle(height: 1.55, color: Color(0xFF536677)),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _MetaPill(label: '단어 체크 $wordNoteCount개'),
-              _MetaPill(label: '문법 체크 $grammarNoteCount개'),
-              _MetaPill(
-                label: article.requiresSourceEnrichment ? '요약 본문' : '정리된 본문',
-              ),
-            ],
-          ),
-          if (sourceSyncMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              sourceSyncMessage!,
-              style: const TextStyle(
-                color: Color(0xFF60707F),
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              FilledButton.icon(
-                onPressed: onEditScript,
-                icon: const Icon(Icons.edit_note_rounded),
-                label: const Text('스크립트 수정'),
-                style: FilledButton.styleFrom(backgroundColor: AppColors.ink),
-              ),
-              OutlinedButton.icon(
-                onPressed: onSpeakTitle,
-                icon: const Icon(Icons.volume_up_rounded),
-                label: const Text('제목 듣기'),
-              ),
-              if (article.requiresSourceEnrichment || sourceSyncMessage != null)
-                OutlinedButton.icon(
-                  onPressed: isSourceSyncing ? null : onRefreshFromSource,
-                  icon: Icon(
-                    isSourceSyncing
-                        ? Icons.sync_rounded
-                        : Icons.article_outlined,
-                  ),
-                  label: Text(isSourceSyncing ? '본문 확인 중' : '원문 본문 확인'),
+              Text(
+                article.sourceName,
+                style: TextStyle(
+                  color: AppColors.teal,
+                  fontWeight: FontWeight.w700,
+                  fontSize: compact ? 13 : 14,
                 ),
-              OutlinedButton.icon(
-                onPressed: () => _openOriginalArticle(context, article.url),
-                icon: const Icon(Icons.open_in_new_rounded),
-                label: const Text('원문 열기'),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                article.title,
+                style: TextStyle(
+                  fontSize: compact ? 22 : 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                article.description,
+                style: TextStyle(
+                  height: 1.55,
+                  color: const Color(0xFF536677),
+                  fontSize: compact ? 14 : 15,
+                ),
+                maxLines: compact ? 4 : null,
+                overflow: compact ? TextOverflow.ellipsis : null,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _MetaPill(label: '단어 체크 $wordNoteCount개'),
+                  _MetaPill(label: '문법 체크 $grammarNoteCount개'),
+                  _MetaPill(
+                    label: article.requiresSourceEnrichment ? '요약 본문' : '정리된 본문',
+                  ),
+                ],
+              ),
+              if (sourceSyncMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  sourceSyncMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFF60707F),
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: onEditScript,
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text('스크립트 수정'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.ink,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 14 : 16,
+                        vertical: compact ? 12 : 14,
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onSpeakTitle,
+                    icon: const Icon(Icons.volume_up_rounded),
+                    label: const Text('제목 듣기'),
+                  ),
+                  if (article.requiresSourceEnrichment || sourceSyncMessage != null)
+                    OutlinedButton.icon(
+                      onPressed: isSourceSyncing ? null : onRefreshFromSource,
+                      icon: Icon(
+                        isSourceSyncing
+                            ? Icons.sync_rounded
+                            : Icons.article_outlined,
+                      ),
+                      label: Text(isSourceSyncing ? '본문 확인 중' : '원문 본문 확인'),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openOriginalArticle(context, article.url),
+                    icon: const Icon(Icons.open_in_new_rounded),
+                    label: const Text('원문 열기'),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -862,33 +891,43 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+
+        return Container(
+          padding: EdgeInsets.all(compact ? 16 : 20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(compact ? 24 : 28),
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.06)),
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(height: 1.55, color: Color(0xFF60707F)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: compact ? 20 : 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  height: 1.55,
+                  color: const Color(0xFF60707F),
+                  fontSize: compact ? 14 : 15,
+                ),
+              ),
+              const SizedBox(height: 16),
+              child,
+            ],
           ),
-          const SizedBox(height: 16),
-          child,
-        ],
-      ),
+        );
+      },
     );
   }
 }
