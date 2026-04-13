@@ -110,6 +110,7 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
             categories: _categories,
             articlesFuture: _articlesFuture,
             onSearchSubmitted: _searchNews,
+            onClearSearch: _clearSearch,
             onCategorySelected: _selectCategory,
             onRefreshRequested: _refreshArticles,
             onOpenArticleStudy: _openArticleStudy,
@@ -246,6 +247,11 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
     _searchController.text = query;
     _searchNews();
   }
+
+  void _clearSearch() {
+    _applyCategoryPreset(_selectedCategory);
+    setState(() => _articlesFuture = _loadArticles());
+  }
 }
 
 class _ImmersionOverviewCard extends StatelessWidget {
@@ -306,6 +312,7 @@ class _LiveNewsPanel extends StatelessWidget {
     required this.categories,
     required this.articlesFuture,
     required this.onSearchSubmitted,
+    required this.onClearSearch,
     required this.onCategorySelected,
     required this.onRefreshRequested,
     required this.onOpenArticleStudy,
@@ -318,6 +325,7 @@ class _LiveNewsPanel extends StatelessWidget {
   final List<_NewsCategoryOption> categories;
   final Future<List<NewsArticle>> articlesFuture;
   final VoidCallback onSearchSubmitted;
+  final VoidCallback onClearSearch;
   final ValueChanged<String> onCategorySelected;
   final Future<void> Function() onRefreshRequested;
   final Future<void> Function(NewsArticle article) onOpenArticleStudy;
@@ -352,18 +360,36 @@ class _LiveNewsPanel extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          TextField(
-            controller: searchController,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => onSearchSubmitted(),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search_rounded),
-              hintText: '예: Berlin, Wirtschaft, KI, Energie',
-              suffixIcon: IconButton(
-                onPressed: onSearchSubmitted,
-                icon: const Icon(Icons.search_rounded),
-              ),
-            ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: searchController,
+            builder: (context, value, _) {
+              final hasSearchText = value.text.trim().isNotEmpty;
+              return TextField(
+                controller: searchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => onSearchSubmitted(),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: '예: Berlin, Wirtschaft, KI, Energie',
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasSearchText)
+                        IconButton(
+                          onPressed: onClearSearch,
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: '검색어 지우기',
+                        ),
+                      IconButton(
+                        onPressed: onSearchSubmitted,
+                        icon: const Icon(Icons.search_rounded),
+                        tooltip: '검색',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Wrap(

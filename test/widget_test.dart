@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vocab_app/src/app/responsive_layout.dart';
+import 'package:vocab_app/src/core/audio/pronunciation_scoring.dart';
 import 'package:vocab_app/src/core/database/app_database.dart';
 
 void main() {
@@ -59,6 +60,37 @@ void main() {
       expect(layout.panelRadius, 34);
       expect(layout.displayTitleSize, 34);
       expect(layout.columnsFor(minTileWidth: 210), 4);
+    });
+  });
+
+  group('scorePronunciationAttempt', () {
+    test('matches an exact transcript strongly', () {
+      final result = scorePronunciationAttempt(
+        targetText: 'Rechnung',
+        heardText: 'Rechnung',
+      );
+
+      expect(result.percentScore, 100);
+      expect(result.band, PronunciationScoreBand.excellent);
+    });
+
+    test('accepts transcripts that include an article', () {
+      final result = scorePronunciationAttempt(
+        targetText: 'Rechnung',
+        heardText: 'die Rechnung',
+      );
+
+      expect(result.percentScore, greaterThanOrEqualTo(90));
+    });
+
+    test('normalizes german umlaut spellings for comparison', () {
+      final result = scorePronunciationAttempt(
+        targetText: 'Gespraech',
+        heardText: 'Gespräch',
+      );
+
+      expect(result.percentScore, 100);
+      expect(normalizePronunciationComparison('Fußgänger'), 'fussgaenger');
     });
   });
 }

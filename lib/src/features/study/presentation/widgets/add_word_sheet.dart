@@ -913,37 +913,55 @@ class _AddWordSheetState extends State<AddWordSheet> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
 
-    await widget.repository.addWord(
-      german: _germanController.text,
-      meaningEn: _englishController.text,
-      meaningKo: _koreanController.text,
-      pronunciation: _pronunciationController.text,
-      ttsLocale: _selectedTtsLocale,
-      article: _articleController.text,
-      partOfSpeech: _partOfSpeechController.text,
-      exampleSentence: _exampleController.text,
-      exampleTranslation: _exampleTranslationController.text,
-      deck: _deckController.text,
-      grammarNote: _grammarController.text,
-      isDailyRecommendation: _markAsTodayRecommendation,
-    );
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final german = _germanController.text.trim();
 
-    if (!mounted) {
-      return;
-    }
+    try {
+      await widget.repository.addWord(
+        german: _germanController.text,
+        meaningEn: _englishController.text,
+        meaningKo: _koreanController.text,
+        pronunciation: _pronunciationController.text,
+        ttsLocale: _selectedTtsLocale,
+        article: _articleController.text,
+        partOfSpeech: _partOfSpeechController.text,
+        exampleSentence: _exampleController.text,
+        exampleTranslation: _exampleTranslationController.text,
+        deck: _deckController.text,
+        grammarNote: _grammarController.text,
+        isDailyRecommendation: _markAsTodayRecommendation,
+      );
 
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _markAsTodayRecommendation
-              ? '${_germanController.text}를 추가하고 오늘 추천에도 올려두었어요.'
-              : '${_germanController.text}를 추가했어요.',
+      if (!mounted) {
+        return;
+      }
+
+      navigator.pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _markAsTodayRecommendation
+                ? '$german를 추가하고 오늘 추천에도 올려두었어요.'
+                : '$german를 추가했어요.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('단어를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.\n$error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   Future<void> _previewPronunciation() async {

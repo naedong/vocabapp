@@ -265,6 +265,21 @@ class _StudyHomePageState extends State<StudyHomePage> {
           searchController: _searchController,
           onSearchChanged: (_) => setState(() {}),
           onDeckSelected: (deck) => setState(() => _selectedDeck = deck),
+          onClearSearch: () {
+            if (_searchController.text.isEmpty) {
+              return;
+            }
+            setState(_searchController.clear);
+          },
+          onResetFilters: () {
+            if (_searchController.text.isEmpty && _selectedDeck == '전체') {
+              return;
+            }
+            setState(() {
+              _searchController.clear();
+              _selectedDeck = '전체';
+            });
+          },
           onBookmarkToggle: widget.repository.toggleBookmark,
           onSpeakWord: _speakWord,
           onSpeakExample: _speakExample,
@@ -680,6 +695,8 @@ class _CollectionPage extends StatelessWidget {
     required this.searchController,
     required this.onSearchChanged,
     required this.onDeckSelected,
+    required this.onClearSearch,
+    required this.onResetFilters,
     required this.onBookmarkToggle,
     required this.onSpeakWord,
     required this.onSpeakExample,
@@ -692,6 +709,8 @@ class _CollectionPage extends StatelessWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onDeckSelected;
+  final VoidCallback onClearSearch;
+  final VoidCallback onResetFilters;
   final Future<void> Function(VocabWord word) onBookmarkToggle;
   final Future<void> Function(VocabWord word) onSpeakWord;
   final Future<void> Function(VocabWord word) onSpeakExample;
@@ -700,6 +719,9 @@ class _CollectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showHero = MediaQuery.sizeOf(context).width >= 720;
+    final hasSearchText = searchController.text.trim().isNotEmpty;
+    final hasActiveFilters = hasSearchText || selectedDeck != '전체';
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
       children: [
@@ -715,9 +737,16 @@ class _CollectionPage extends StatelessWidget {
         TextField(
           controller: searchController,
           onChanged: onSearchChanged,
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search_rounded),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search_rounded),
             hintText: '독일어, 한국어 뜻, 영어 뜻으로 검색',
+            suffixIcon: hasSearchText
+                ? IconButton(
+                    onPressed: onClearSearch,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: '검색어 지우기',
+                  )
+                : null,
           ),
         ),
         const SizedBox(height: 16),
@@ -734,6 +763,17 @@ class _CollectionPage extends StatelessWidget {
               )
               .toList(),
         ),
+        if (hasActiveFilters) ...[
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onResetFilters,
+              icon: const Icon(Icons.restart_alt_rounded),
+              label: const Text('검색과 덱 초기화'),
+            ),
+          ),
+        ],
         const SizedBox(height: 18),
         if (words.isEmpty)
           const _EmptyPanel(
