@@ -1,5 +1,7 @@
 import '../../../core/audio/voice_locale.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/localization/app_copy.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../study/application/study_word_draft.dart';
 import 'script_analyzer.dart';
 
@@ -58,6 +60,7 @@ class ReadingWordSuggester {
   static ReadingWordSuggestion suggest({
     required ScriptToken token,
     required List<VocabWord> knownMatches,
+    AppLanguage appLanguage = AppLanguage.korean,
   }) {
     if (knownMatches.isNotEmpty) {
       final word = knownMatches.first;
@@ -69,8 +72,8 @@ class ReadingWordSuggester {
             : word.pronunciation,
         partOfSpeech: word.partOfSpeech,
         article: word.article,
-        grammarHint: _grammarHintForKnownWord(word),
-        sourceLabel: '내 단어장',
+        grammarHint: _grammarHintForKnownWord(word, appLanguage),
+        sourceLabel: _tr(appLanguage, '내 단어장', 'My word list'),
         isApproximate: false,
         deck: word.deck,
         ttsLocale: word.ttsLocale,
@@ -84,8 +87,11 @@ class ReadingWordSuggester {
         meaningEn: builtIn.meaningEn,
         pronunciation: token.surface,
         partOfSpeech: builtIn.partOfSpeech,
-        grammarHint: builtIn.grammarHint,
-        sourceLabel: '기본 독일어 사전',
+        grammarHint: appLanguage.copy(
+          korean: builtIn.grammarHint,
+          english: _fallbackGrammarHint(builtIn.partOfSpeech, appLanguage),
+        ),
+        sourceLabel: _tr(appLanguage, '기본 독일어 사전', 'Built-in German lexicon'),
         isApproximate: false,
       );
     }
@@ -96,8 +102,8 @@ class ReadingWordSuggester {
       meaningEn: 'Check meaning',
       pronunciation: token.surface,
       partOfSpeech: guessedPartOfSpeech,
-      grammarHint: _fallbackGrammarHint(guessedPartOfSpeech),
-      sourceLabel: '형태 기반 자동 추정',
+      grammarHint: _fallbackGrammarHint(guessedPartOfSpeech, appLanguage),
+      sourceLabel: _tr(appLanguage, '형태 기반 자동 추정', 'Morphology-based guess'),
       isApproximate: true,
     );
   }
@@ -119,20 +125,42 @@ class ReadingWordSuggester {
     return 'expression';
   }
 
-  static String _fallbackGrammarHint(String partOfSpeech) {
+  static String _fallbackGrammarHint(
+    String partOfSpeech,
+    AppLanguage appLanguage,
+  ) {
     switch (partOfSpeech) {
       case 'noun':
-        return '독일어 명사는 보통 첫 글자를 대문자로 쓰고, 관사와 함께 익히면 성과 격 변화를 기억하기 좋습니다.';
+        return _tr(
+          appLanguage,
+          '독일어 명사는 보통 첫 글자를 대문자로 쓰고, 관사와 함께 익히면 성과 격 변화를 기억하기 좋습니다.',
+          'German nouns are usually capitalized, and learning them with their article makes gender and case changes easier to remember.',
+        );
       case 'verb':
-        return '동사는 인칭과 시제에 따라 어미가 바뀌므로 원형과 함께 현재형 예문을 같이 보며 외우는 편이 좋습니다.';
+        return _tr(
+          appLanguage,
+          '동사는 인칭과 시제에 따라 어미가 바뀌므로 원형과 함께 현재형 예문을 같이 보며 외우는 편이 좋습니다.',
+          'German verbs change their endings by person and tense, so it helps to study the infinitive together with a present-tense example.',
+        );
       case 'adjective':
-        return '형용사는 문장 안에서 서술적으로도 쓰이고, 명사 앞에 올 때는 어미 변화가 생길 수 있습니다.';
+        return _tr(
+          appLanguage,
+          '형용사는 문장 안에서 서술적으로도 쓰이고, 명사 앞에 올 때는 어미 변화가 생길 수 있습니다.',
+          'Adjectives can be used predicatively, and they may change endings when placed before a noun.',
+        );
       default:
-        return '문맥 안에서 자주 함께 나오는 단어와 같이 익히면 실제 사용 감각을 더 빨리 만들 수 있습니다.';
+        return _tr(
+          appLanguage,
+          '문맥 안에서 자주 함께 나오는 단어와 같이 익히면 실제 사용 감각을 더 빨리 만들 수 있습니다.',
+          'You will build a better feel for this expression faster if you learn it together with the words that often appear around it.',
+        );
     }
   }
 
-  static String _grammarHintForKnownWord(VocabWord word) {
+  static String _grammarHintForKnownWord(
+    VocabWord word,
+    AppLanguage appLanguage,
+  ) {
     final savedGrammarNote = word.grammarNote?.trim();
     if (savedGrammarNote != null && savedGrammarNote.isNotEmpty) {
       return savedGrammarNote;
@@ -140,16 +168,36 @@ class ReadingWordSuggester {
 
     final part = word.partOfSpeech.toLowerCase();
     if (part.contains('noun')) {
-      return '${word.german}는 명사로 보입니다. 관사와 함께 외우면 독일어의 성과 격 변화를 같이 익힐 수 있습니다.';
+      return _tr(
+        appLanguage,
+        '${word.german}는 명사로 보입니다. 관사와 함께 외우면 독일어의 성과 격 변화를 같이 익힐 수 있습니다.',
+        '${word.german} looks like a noun. Learning it with the article helps you study German gender and case changes together.',
+      );
     }
     if (part.contains('verb')) {
-      return '${word.german}는 동사로 보입니다. 현재형 변화와 함께 예문을 반복해서 보면 실제로 쓰기 쉬워집니다.';
+      return _tr(
+        appLanguage,
+        '${word.german}는 동사로 보입니다. 현재형 변화와 함께 예문을 반복해서 보면 실제로 쓰기 쉬워집니다.',
+        '${word.german} looks like a verb. Reviewing it with present-tense forms and example sentences makes it easier to use.',
+      );
     }
     if (part.contains('adjective')) {
-      return '${word.german}는 형용사로 보입니다. 명사를 꾸밀 때와 서술어로 쓸 때의 차이를 같이 보세요.';
+      return _tr(
+        appLanguage,
+        '${word.german}는 형용사로 보입니다. 명사를 꾸밀 때와 서술어로 쓸 때의 차이를 같이 보세요.',
+        '${word.german} looks like an adjective. Notice the difference between using it before a noun and using it as a predicate.',
+      );
     }
-    return '${word.german}는 ${word.partOfSpeech} 계열 표현입니다. 문장 단위로 익히면 활용하기 좋습니다.';
+    return _tr(
+      appLanguage,
+      '${word.german}는 ${word.partOfSpeech} 계열 표현입니다. 문장 단위로 익히면 활용하기 좋습니다.',
+      '${word.german} is used as a ${word.partOfSpeech}-type expression. Learning it in full sentences makes it easier to use.',
+    );
   }
+}
+
+String _tr(AppLanguage appLanguage, String korean, String english) {
+  return appLanguage.copy(korean: korean, english: english);
 }
 
 class _BuiltinLexiconEntry {

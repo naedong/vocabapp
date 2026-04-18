@@ -8,15 +8,87 @@ import '../../../../core/audio/pronunciation_assessment_service.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/audio/voice_locale.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/localization/app_copy.dart';
+import '../../../../core/settings/app_settings.dart';
+import '../../../../core/settings/app_settings_repository.dart';
+import '../../../../core/settings/app_settings_scope.dart';
 import '../../../dictionary/application/dictionary_repository.dart';
 import '../../../immersion/application/immersion_repository.dart';
 import '../../../immersion/application/news_feed_repository.dart';
 import '../../../immersion/data/learning_resource_catalog.dart';
+import '../pages/exam_practice_page.dart';
+import '../pages/daily_recommendations_page.dart';
 import '../../../immersion/presentation/pages/immersion_hub_page.dart';
+import '../../application/daily_word_recommendation_service.dart';
 import '../../application/study_repository.dart';
 import '../../application/study_coach_service.dart';
 import '../widgets/add_word_sheet.dart';
+import '../widgets/app_settings_sheet.dart';
 import '../widgets/word_coach_sheet.dart';
+
+String _tr(BuildContext context, String korean, String english) {
+  return context.copy(korean: korean, english: english);
+}
+
+String _uiPrimaryMeaning(BuildContext context, VocabWord word) {
+  return AppSettingsScope.of(
+    context,
+  ).appLanguage.copy(korean: word.meaningKo, english: word.meaningEn);
+}
+
+String _uiSecondaryMeaning(BuildContext context, VocabWord word) {
+  return AppSettingsScope.of(
+    context,
+  ).appLanguage.copy(korean: word.meaningEn, english: word.meaningKo);
+}
+
+String _todayPickLabel(BuildContext context) {
+  return _tr(context, '오늘 추천', 'Today pick');
+}
+
+String _reviewCountLabel(BuildContext context, int timesReviewed) {
+  return _tr(context, '리뷰 $timesReviewed회', '$timesReviewed reviews');
+}
+
+String _masteryLabel(BuildContext context, int mastery) {
+  return _tr(context, '숙련도 $mastery/5', 'Mastery $mastery/5');
+}
+
+String _pronunciationLine(BuildContext context, VocabWord word) {
+  return _tr(
+    context,
+    '발음: ${word.pronunciation}  |  음성: ${_wordVoiceLocaleLabel(word)}',
+    'Pronunciation: ${word.pronunciation}  |  Voice: ${_wordVoiceLocaleLabel(word)}',
+  );
+}
+
+String _voiceLocaleLine(BuildContext context, VocabWord word) {
+  return _tr(
+    context,
+    '음성 locale: ${_wordVoiceLocaleLabel(word)}',
+    'Voice locale: ${_wordVoiceLocaleLabel(word)}',
+  );
+}
+
+String _pronunciationMemoLine(BuildContext context, VocabWord word) {
+  return _tr(
+    context,
+    '발음 메모: ${word.pronunciation}\n음성 locale: ${_wordVoiceLocaleLabel(word)}',
+    'Pronunciation note: ${word.pronunciation}\nVoice locale: ${_wordVoiceLocaleLabel(word)}',
+  );
+}
+
+String _wordAudioLabel(BuildContext context) {
+  return _tr(context, '단어 듣기', 'Play word');
+}
+
+String _exampleAudioLabel(BuildContext context) {
+  return _tr(context, '예문 듣기', 'Play example');
+}
+
+String _pronunciationCoachLabel(BuildContext context) {
+  return _tr(context, '마이크 발음 점검', 'Mic pronunciation check');
+}
 
 class StudyHomePage extends StatefulWidget {
   const StudyHomePage({
@@ -28,6 +100,8 @@ class StudyHomePage extends StatefulWidget {
     required this.pronunciationService,
     required this.pronunciationAssessmentService,
     required this.studyCoachService,
+    required this.appSettingsRepository,
+    required this.settings,
   });
 
   final StudyRepository repository;
@@ -37,6 +111,8 @@ class StudyHomePage extends StatefulWidget {
   final PronunciationService pronunciationService;
   final PronunciationAssessmentService pronunciationAssessmentService;
   final StudyCoachService studyCoachService;
+  final AppSettingsRepository appSettingsRepository;
+  final AppSettingsData settings;
 
   @override
   State<StudyHomePage> createState() => _StudyHomePageState();
@@ -46,7 +122,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
   final TextEditingController _searchController = TextEditingController();
 
   int _selectedIndex = 0;
-  String _selectedDeck = '전체';
+  String _selectedDeck = 'All';
   bool _revealAnswer = false;
 
   @override
@@ -60,8 +136,14 @@ class _StudyHomePageState extends State<StudyHomePage> {
     return StreamBuilder<List<VocabWord>>(
       stream: widget.repository.watchWords(),
       builder: (context, snapshot) {
-        final words = List<VocabWord>.from(snapshot.data ?? const <VocabWord>[])
-          ..sort(_sortWords);
+        final allWords = List<VocabWord>.from(
+          snapshot.data ?? const <VocabWord>[],
+        )..sort(_sortWords);
+        final words = allWords
+            .where(
+              (word) => word.languageCode == widget.settings.studyLanguage.code,
+            )
+            .toList();
         final dueWords = _dueWords(words);
         final todayRecommendedWords = _todayRecommendedWords(words);
 
@@ -105,19 +187,47 @@ class _StudyHomePageState extends State<StudyHomePage> {
   }) {
     final titles = [
       'Deutsch Flow',
-      'Word Collection',
-      'Review Session',
-      'Real-world German',
-      'Study Insights',
+      _tr(context, '단어 컬렉션', 'Word Collection'),
+      _tr(context, '복습 세션', 'Review Session'),
+      widget.settings.studyLanguage.englishLabel == 'German'
+          ? _tr(context, '실전 독일어', 'Real-world German')
+          : _tr(context, '실전 허브', 'Immersion Hub'),
+      _tr(context, '학습 인사이트', 'Study Insights'),
     ];
     final subtitles = [
-      '독일어 단어 수집, 복습, 통계를 한 흐름으로 묶은 학습 대시보드입니다.',
-      '덱과 검색으로 단어를 정리하고, 북마크 카드만 따로 골라볼 수 있습니다.',
-      '현재 복습 대기 중인 단어는 ${dueWords.length}개입니다.',
-      '뉴스, 영상, 문법 콘텐츠를 보며 실제 독일어가 쓰이는 맥락을 함께 익혀보세요.',
-      '최근 학습량과 덱별 숙련도를 보며 다음 루틴을 정리해 보세요.',
+      _tr(
+        context,
+        '수집, 복습, 문제 풀이를 한 흐름에서 이어가는 학습 공간입니다.',
+        'A single workspace for collection, review, and exam practice.',
+      ),
+      _tr(
+        context,
+        '덱별 필터와 검색으로 카드를 빠르게 정리할 수 있어요.',
+        'Filter by deck, search quickly, and keep favorite cards close at hand.',
+      ),
+      _tr(
+        context,
+        '지금 복습 대기 중인 카드가 ${dueWords.length}장 있습니다.',
+        'You currently have ${dueWords.length} cards waiting for review.',
+      ),
+      _tr(
+        context,
+        '현재 학습 언어에 맞는 기사와 자료를 열어 실제 문맥으로 이동합니다.',
+        'Open reading and media-based study material for your current language routine.',
+      ),
+      _tr(
+        context,
+        '최근 활동을 확인하고 다음 루틴을 데이터로 조정해 보세요.',
+        'Check recent activity and adjust your next routine from the data.',
+      ),
     ];
     final useRail = layout.isExpanded;
+    final headerActions = _HeaderActions(
+      onOpenExamBuilder: widget.settings.isGermanMode
+          ? _openGeneratedExamSheet
+          : null,
+      onOpenSettings: _openSettingsSheet,
+    );
     final mainPage = _buildPage(
       words: words,
       dueWords: dueWords,
@@ -127,6 +237,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
       title: titles[_selectedIndex],
       subtitle: subtitles[_selectedIndex],
       badge: _badgeLabel(wordCount: words.length, dueCount: dueWords.length),
+      headerActions: headerActions,
       child: mainPage,
     );
 
@@ -140,38 +251,38 @@ class _StudyHomePageState extends State<StudyHomePage> {
           : FloatingActionButton.extended(
               onPressed: _openAddWordSheet,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('단어 추가'),
+              label: Text(_tr(context, '단어 추가', 'Add word')),
             ),
       bottomNavigationBar: useRail
           ? null
           : NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: _selectTab,
-              destinations: const [
+              destinations: [
                 NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home_rounded),
-                  label: '홈',
+                  label: _tr(context, '홈', 'Home'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.layers_outlined),
                   selectedIcon: Icon(Icons.layers_rounded),
-                  label: '컬렉션',
+                  label: _tr(context, '컬렉션', 'Library'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.bolt_outlined),
                   selectedIcon: Icon(Icons.bolt_rounded),
-                  label: '복습',
+                  label: _tr(context, '복습', 'Review'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.explore_outlined),
                   selectedIcon: Icon(Icons.explore_rounded),
-                  label: '실전',
+                  label: _tr(context, '실전', 'Immersion'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.insights_outlined),
                   selectedIcon: Icon(Icons.insights_rounded),
-                  label: '통계',
+                  label: _tr(context, '통계', 'Insights'),
                 ),
               ],
             ),
@@ -214,6 +325,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
                         wordCount: words.length,
                         dueCount: dueWords.length,
                       ),
+                      headerActions: headerActions,
                       child: mainPage,
                     ),
                   ),
@@ -240,16 +352,20 @@ class _StudyHomePageState extends State<StudyHomePage> {
           onSpeakExample: _speakExample,
           onOpenCoach: _openWordCoach,
           onAddDailyWord: _openDailyRecommendationSheet,
+          onOpenDailyRecommendations: _openDailyRecommendationsPage,
+          onOpenExamLab: widget.settings.isGermanMode
+              ? _openGeneratedExamSheet
+              : null,
         );
       case 1:
         final allDecks = <String>{
-          '전체',
+          'All',
           ...words.map((word) => word.deck),
-        }.toList()..sort((a, b) => a == '전체' ? -1 : a.compareTo(b));
+        }.toList()..sort((a, b) => a == 'All' ? -1 : a.compareTo(b));
         final query = _searchController.text.trim().toLowerCase();
         final filtered = words.where((word) {
           final matchesDeck =
-              _selectedDeck == '전체' || _selectedDeck == word.deck;
+              _selectedDeck == 'All' || _selectedDeck == word.deck;
           final matchesQuery =
               query.isEmpty ||
               word.german.toLowerCase().contains(query) ||
@@ -272,18 +388,20 @@ class _StudyHomePageState extends State<StudyHomePage> {
             setState(_searchController.clear);
           },
           onResetFilters: () {
-            if (_searchController.text.isEmpty && _selectedDeck == '전체') {
+            if (_searchController.text.isEmpty && _selectedDeck == 'All') {
               return;
             }
             setState(() {
               _searchController.clear();
-              _selectedDeck = '전체';
+              _selectedDeck = 'All';
             });
           },
           onBookmarkToggle: widget.repository.toggleBookmark,
           onSpeakWord: _speakWord,
           onSpeakExample: _speakExample,
           onOpenCoach: _openWordCoach,
+          primaryMeaningOf: _primaryMeaning,
+          secondaryMeaningOf: _secondaryMeaning,
         );
       case 2:
         return _PracticePage(
@@ -295,13 +413,15 @@ class _StudyHomePageState extends State<StudyHomePage> {
             if (!mounted) {
               return;
             }
-            setState(() => _revealAnswer = false);
+            setState(() {
+              _revealAnswer = false;
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   remembered
-                      ? '${word.german}를 다음 간격으로 넘겼어요.'
-                      : '${word.german}를 가까운 복습 큐에 다시 넣었어요.',
+                      ? 'Moved ${word.german} to the next interval.'
+                      : 'Queued ${word.german} for a closer review.',
                 ),
               ),
             );
@@ -312,6 +432,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
         );
       case 3:
         return ImmersionHubPage(
+          settings: widget.settings,
           repository: widget.immersionRepository,
           dictionaryRepository: widget.dictionaryRepository,
           studyRepository: widget.repository,
@@ -335,12 +456,21 @@ class _StudyHomePageState extends State<StudyHomePage> {
           dictionaryRepository: widget.dictionaryRepository,
           repository: widget.repository,
           pronunciationService: widget.pronunciationService,
+          settings: widget.settings,
         ),
       ),
     );
   }
 
   Future<void> _openDailyRecommendationSheet() {
+    final title = _tr(context, '오늘 추천에 저장', 'Add to today\'s picks');
+    final subtitle = _tr(
+      context,
+      '사전 자동 채움으로 추천 단어를 저장하면 홈의 오늘 추천 영역에 바로 나타납니다.',
+      'Save a word with autofill and it will appear immediately in the daily picks area on the dashboard.',
+    );
+    final submitLabel = _tr(context, '추천 단어 저장', 'Save daily pick');
+
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -351,12 +481,25 @@ class _StudyHomePageState extends State<StudyHomePage> {
           dictionaryRepository: widget.dictionaryRepository,
           repository: widget.repository,
           pronunciationService: widget.pronunciationService,
-          defaultDeck: '오늘의 추천',
+          settings: widget.settings,
+          defaultDeck: 'Daily Picks',
           initialIsDailyRecommendation: true,
-          title: '오늘의 추천 단어 추가',
-          subtitle:
-              '오늘 꼭 기억하고 싶은 단어를 사전 자동 채움과 함께 저장하면 홈 대시보드의 추천 영역에 바로 나타납니다.',
-          submitLabel: '오늘 추천 저장',
+          title: title,
+          subtitle: subtitle,
+          submitLabel: submitLabel,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDailyRecommendationsPage() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => DailyRecommendationsPage(
+          repository: widget.repository,
+          dictionaryRepository: widget.dictionaryRepository,
+          pronunciationService: widget.pronunciationService,
+          settings: widget.settings,
         ),
       ),
     );
@@ -365,16 +508,24 @@ class _StudyHomePageState extends State<StudyHomePage> {
   Future<void> _speakWord(VocabWord word) async {
     await _speakText(
       word.german,
-      locale: word.ttsLocale,
-      errorMessage: '단어 발음을 재생하지 못했습니다.',
+      locale: _voiceLocaleCodeForWord(word),
+      errorMessage: _tr(
+        context,
+        '단어 음성을 재생하지 못했어요. 기기에 독일어 TTS 음성이 설치되어 있는지 확인해 주세요.',
+        'Could not play the word audio. Check that a German TTS voice is installed on this device.',
+      ),
     );
   }
 
   Future<void> _speakExample(VocabWord word) async {
     await _speakText(
       word.exampleSentence,
-      locale: word.ttsLocale,
-      errorMessage: '예문 발음을 재생하지 못했습니다.',
+      locale: _voiceLocaleCodeForWord(word),
+      errorMessage: _tr(
+        context,
+        '예문 음성을 재생하지 못했어요. 기기에 독일어 TTS 음성이 설치되어 있는지 확인해 주세요.',
+        'Could not play the example audio. Check that a German TTS voice is installed on this device.',
+      ),
     );
   }
 
@@ -407,6 +558,38 @@ class _StudyHomePageState extends State<StudyHomePage> {
           pronunciationService: widget.pronunciationService,
           assessmentService: widget.pronunciationAssessmentService,
           studyCoachService: widget.studyCoachService,
+          appLanguage: widget.settings.appLanguage,
+          aiProviderPreference: widget.settings.aiProviderPreference,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSettingsSheet() {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.92,
+        child: AppSettingsSheet(
+          initialSettings: widget.settings,
+          repository: widget.appSettingsRepository,
+          aiConfigured: widget.studyCoachService.isConfigured,
+          activeProviderLabel: widget.studyCoachService.providerLabel,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openGeneratedExamSheet() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ExamPracticePage(
+          repository: widget.repository,
+          settings: widget.settings,
+          pronunciationService: widget.pronunciationService,
+          assessmentService: widget.pronunciationAssessmentService,
         ),
       ),
     );
@@ -424,12 +607,30 @@ class _StudyHomePageState extends State<StudyHomePage> {
   String _badgeLabel({required int wordCount, required int dueCount}) {
     switch (_selectedIndex) {
       case 2:
-        return '오늘 복습 $dueCount개';
+        return _tr(context, '오늘 복습 $dueCount개', 'Due today $dueCount');
       case 3:
-        return '실전 자료 ${immersionLearningResources.length}개';
+        return _tr(
+          context,
+          '실전 자료 ${immersionLearningResources.length}개',
+          'Immersion ${immersionLearningResources.length}',
+        );
       default:
-        return '전체 단어 $wordCount개';
+        return '${widget.settings.studyLanguage.englishLabel} words $wordCount';
     }
+  }
+
+  String _primaryMeaning(VocabWord word) {
+    return widget.settings.appLanguage.copy(
+      korean: word.meaningKo,
+      english: word.meaningEn,
+    );
+  }
+
+  String _secondaryMeaning(VocabWord word) {
+    return widget.settings.appLanguage.copy(
+      korean: word.meaningEn,
+      english: word.meaningKo,
+    );
   }
 
   static int _sortWords(VocabWord a, VocabWord b) {
@@ -478,6 +679,8 @@ class _DashboardPage extends StatelessWidget {
     required this.onSpeakExample,
     required this.onOpenCoach,
     required this.onAddDailyWord,
+    required this.onOpenDailyRecommendations,
+    this.onOpenExamLab,
   });
 
   final List<VocabWord> words;
@@ -489,6 +692,8 @@ class _DashboardPage extends StatelessWidget {
   final Future<void> Function(VocabWord word) onSpeakExample;
   final Future<void> Function(VocabWord word) onOpenCoach;
   final Future<void> Function() onAddDailyWord;
+  final Future<void> Function() onOpenDailyRecommendations;
+  final Future<void> Function()? onOpenExamLab;
 
   @override
   Widget build(BuildContext context) {
@@ -501,41 +706,65 @@ class _DashboardPage extends StatelessWidget {
                   100)
               .round();
     final bookmarks = words.where((word) => word.isBookmarked).length;
+    final dailyRemainingCount = math.max(
+      0,
+      dailyGermanRecommendationTargetCount - todayRecommendedWords.length,
+    );
     final modules = [
       _DashboardModule(
         tabIndex: 1,
         icon: Icons.layers_rounded,
-        label: '컬렉션',
-        value: '${words.length}장',
-        title: '단어 라이브러리',
-        body: '덱과 검색으로 카드를 정리하고 다시 찾을 수 있어요.',
+        label: _tr(context, '컬렉션', 'Library'),
+        value: _tr(context, '${words.length}장', '${words.length}'),
+        title: _tr(context, '단어 라이브러리', 'Word library'),
+        body: _tr(
+          context,
+          '덱과 검색으로 카드를 정리하고 다시 찾을 수 있어요.',
+          'Organize cards by deck and find them again fast.',
+        ),
         color: AppColors.teal,
       ),
       _DashboardModule(
         tabIndex: 2,
         icon: Icons.bolt_rounded,
-        label: '복습',
-        value: '${dueWords.length}개',
-        title: '리뷰 세션',
-        body: '지금 다시 볼 카드부터 빠르게 이어서 복습합니다.',
+        label: _tr(context, '복습', 'Review'),
+        value: _tr(context, '${dueWords.length}개', '${dueWords.length}'),
+        title: _tr(context, '리뷰 세션', 'Review session'),
+        body: _tr(
+          context,
+          '지금 다시 볼 카드부터 빠르게 이어서 복습합니다.',
+          'Continue from the cards you should see again right now.',
+        ),
         color: AppColors.coral,
       ),
       _DashboardModule(
         tabIndex: 3,
         icon: Icons.explore_rounded,
-        label: '실전',
-        value: '${immersionLearningResources.length}개',
-        title: '실전 독일어',
-        body: '뉴스와 자료를 눌러 실제 문맥 속 단어와 바로 연결됩니다.',
+        label: _tr(context, '실전', 'Immersion'),
+        value: _tr(
+          context,
+          '${immersionLearningResources.length}개',
+          '${immersionLearningResources.length}',
+        ),
+        title: _tr(context, '실전 독일어', 'Immersion hub'),
+        body: _tr(
+          context,
+          '뉴스와 자료를 눌러 실제 문맥 속 단어와 바로 연결됩니다.',
+          'Open news and resources that connect words to real contexts.',
+        ),
         color: AppColors.ink,
       ),
       _DashboardModule(
         tabIndex: 4,
         icon: Icons.insights_rounded,
-        label: '통계',
+        label: _tr(context, '통계', 'Insights'),
         value: '$average%',
-        title: '학습 인사이트',
-        body: '리듬과 약한 덱을 확인하며 다음 루틴을 정리할 수 있어요.',
+        title: _tr(context, '학습 인사이트', 'Study insights'),
+        body: _tr(
+          context,
+          '리듬과 약한 덱을 확인하며 다음 루틴을 정리할 수 있어요.',
+          'Check rhythm and weaker decks before planning the next routine.',
+        ),
         color: AppColors.gold,
       ),
     ];
@@ -544,18 +773,29 @@ class _DashboardPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
       children: [
         if (showHero) ...[
-          const _HeroBanner(
+          _HeroBanner(
             color: AppColors.ink,
             eyebrow: 'Study rhythm',
-            title: 'Guten Tag.\n오늘의 독일어 흐름을 이어가 보세요.',
-            body:
-                '웹과 앱에서 같은 Drift 로컬 데이터베이스 흐름으로 단어를 쌓고, 복습 큐를 이어서 관리할 수 있게 구성했습니다.',
+            title: _tr(
+              context,
+              'Guten Tag.\n오늘의 독일어 흐름을 이어가 보세요.',
+              'Guten Tag.\nKeep your German flow going.',
+            ),
+            body: _tr(
+              context,
+              '같은 로컬 학습 공간에서 단어를 쌓고, 복습을 이어가고, 읽기·듣기·말하기 문제까지 바로 풀 수 있게 구성했습니다.',
+              'Build cards, continue reviews, and move into reading, listening, and speaking practice from the same local learning workspace.',
+            ),
           ),
           const SizedBox(height: 20),
         ],
-        const _SectionTitle(
-          title: '빠른 이동',
-          subtitle: '필요한 흐름을 누르면 해당 정보 화면으로 바로 이어집니다.',
+        _SectionTitle(
+          title: _tr(context, '빠른 이동', 'Quick access'),
+          subtitle: _tr(
+            context,
+            '필요한 흐름을 누르면 해당 정보 화면으로 바로 이어집니다.',
+            'Jump straight into the part of the routine you want to work on.',
+          ),
         ),
         const SizedBox(height: 14),
         _AdaptiveCardGrid(
@@ -570,66 +810,117 @@ class _DashboardPage extends StatelessWidget {
               )
               .toList(),
         ),
+        if (onOpenExamLab != null) ...[
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: onOpenExamLab,
+              icon: const Icon(Icons.headset_mic_rounded),
+              label: Text(_tr(context, '읽기·듣기·말하기 연습 열기', 'Open practice lab')),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.ink),
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         _AdaptiveCardGrid(
           minTileWidth: 160,
           maxColumns: 4,
           children: [
             _MetricTile(
-              label: '전체 단어',
+              label: _tr(context, '전체 단어', 'Total words'),
               value: '${words.length}',
-              hint: '수집한 카드',
+              hint: _tr(context, '수집한 카드', 'Saved cards'),
               color: AppColors.ink,
             ),
             _MetricTile(
-              label: '오늘 복습',
+              label: _tr(context, '오늘 복습', 'Due today'),
               value: '${dueWords.length}',
-              hint: '지금 다시 볼 카드',
+              hint: _tr(context, '지금 다시 볼 카드', 'Cards to review now'),
               color: AppColors.coral,
             ),
             _MetricTile(
-              label: '오늘 추천',
+              label: _tr(context, '오늘 추천', 'Daily picks'),
               value: '${todayRecommendedWords.length}',
-              hint: '직접 고른 단어',
+              hint: _tr(
+                context,
+                '$dailyGermanRecommendationTargetCount개 목표',
+                'Target $dailyGermanRecommendationTargetCount',
+              ),
               color: AppColors.gold,
             ),
             _MetricTile(
-              label: '북마크',
+              label: _tr(context, '북마크', 'Bookmarks'),
               value: '$bookmarks',
-              hint: '집중 카드',
+              hint: _tr(context, '집중 카드', 'Focus cards'),
               color: AppColors.teal,
             ),
             _MetricTile(
-              label: '숙련도',
+              label: _tr(context, '숙련도', 'Mastery'),
               value: '$average%',
-              hint: '평균 진행률',
+              hint: _tr(context, '평균 진행률', 'Average progress'),
               color: AppColors.gold,
             ),
           ],
         ),
         const SizedBox(height: 26),
-        const _SectionTitle(
-          title: '오늘의 추천 단어',
-          subtitle: '매일 직접 고른 단어를 따로 모아 두고, 단어 뜻과 문법 포인트를 함께 복습해 보세요.',
-        ),
-        const SizedBox(height: 14),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: onAddDailyWord,
-            icon: const Icon(Icons.auto_awesome_rounded),
-            label: const Text('오늘 추천 단어 추가'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.ink,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            ),
+        _SectionTitle(
+          title: _tr(context, '오늘의 추천 단어', 'Daily picks'),
+          subtitle: _tr(
+            context,
+            '전용 페이지에서 오늘의 독일어 추천 단어를 준비하고, Gemini 설명과 독일어 TTS로 확인해 보세요.',
+            'Open the dedicated page to prepare and review today\'s German words with Gemini notes and German TTS.',
           ),
         ),
         const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            FilledButton.icon(
+              onPressed: onOpenDailyRecommendations,
+              icon: const Icon(Icons.calendar_month_rounded),
+              label: Text(
+                dailyRemainingCount == 0
+                    ? _tr(context, '오늘 추천 준비 완료', 'Daily target ready')
+                    : _tr(
+                        context,
+                        '오늘 추천 페이지 열기 ($dailyRemainingCount개 남음)',
+                        'Open daily page ($dailyRemainingCount left)',
+                      ),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.ink,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: onAddDailyWord,
+              icon: const Icon(Icons.edit_note_rounded),
+              label: Text(_tr(context, '직접 단어 추가', 'Add one manually')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.ink,
+                side: BorderSide(color: AppColors.ink.withValues(alpha: 0.14)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
         if (todayRecommendedWords.isEmpty)
-          const _EmptyPanel(
-            title: '아직 오늘 추천 단어가 없어요.',
-            message: '오늘 꼭 기억하고 싶은 단어를 하나 골라 추가해 두면 홈에서 바로 다시 볼 수 있습니다.',
+          _EmptyPanel(
+            title: _tr(context, '아직 오늘 추천 단어가 없어요.', 'No daily picks yet.'),
+            message: _tr(
+              context,
+              '오늘 추천 페이지를 열어 Gemini 설명과 독일어 음성이 들어간 세트를 준비해 보세요.',
+              'Open the daily page to prepare a focused set with Gemini notes and a German voice.',
+            ),
           )
         else
           ...todayRecommendedWords.map(
@@ -645,15 +936,27 @@ class _DashboardPage extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 12),
-        const _SectionTitle(
-          title: '오늘의 포커스',
-          subtitle: '지금 꺼내 보면 좋은 단어부터 먼저 정리했습니다.',
+        _SectionTitle(
+          title: _tr(context, '오늘의 포커스', 'Today\'s focus'),
+          subtitle: _tr(
+            context,
+            '지금 꺼내 보면 좋은 단어부터 먼저 정리했습니다.',
+            'The best cards to pull out right now are listed first.',
+          ),
         ),
         const SizedBox(height: 14),
         if (dueWords.isEmpty)
-          const _EmptyPanel(
-            title: '오늘 복습 큐가 비어 있어요.',
-            message: '새 단어를 추가하거나 컬렉션에서 북마크 카드를 더 쌓아보세요.',
+          _EmptyPanel(
+            title: _tr(
+              context,
+              '오늘 복습 큐가 비어 있어요.',
+              'Your review queue is clear for now.',
+            ),
+            message: _tr(
+              context,
+              '새 단어를 추가하거나 컬렉션에서 북마크 카드를 더 쌓아보세요.',
+              'Add new words or bookmark more cards from the library.',
+            ),
           )
         else
           ...dueWords
@@ -671,9 +974,13 @@ class _DashboardPage extends StatelessWidget {
                 ),
               ),
         const SizedBox(height: 12),
-        const _SectionTitle(
-          title: '덱 스냅샷',
-          subtitle: '주제별 진행률을 빠르게 훑어보고 약한 덱을 골라 복습할 수 있습니다.',
+        _SectionTitle(
+          title: _tr(context, '덱 스냅샷', 'Deck snapshot'),
+          subtitle: _tr(
+            context,
+            '주제별 진행률을 빠르게 훑어보고 약한 덱을 골라 복습할 수 있습니다.',
+            'Scan topic progress quickly and pick weaker decks for review.',
+          ),
         ),
         const SizedBox(height: 14),
         ...deckSummaries.map(
@@ -701,6 +1008,8 @@ class _CollectionPage extends StatelessWidget {
     required this.onSpeakWord,
     required this.onSpeakExample,
     required this.onOpenCoach,
+    required this.primaryMeaningOf,
+    required this.secondaryMeaningOf,
   });
 
   final List<VocabWord> words;
@@ -715,22 +1024,32 @@ class _CollectionPage extends StatelessWidget {
   final Future<void> Function(VocabWord word) onSpeakWord;
   final Future<void> Function(VocabWord word) onSpeakExample;
   final Future<void> Function(VocabWord word) onOpenCoach;
+  final String Function(VocabWord word) primaryMeaningOf;
+  final String Function(VocabWord word) secondaryMeaningOf;
 
   @override
   Widget build(BuildContext context) {
     final showHero = MediaQuery.sizeOf(context).width >= 720;
     final hasSearchText = searchController.text.trim().isNotEmpty;
-    final hasActiveFilters = hasSearchText || selectedDeck != '전체';
+    final hasActiveFilters = hasSearchText || selectedDeck != 'All';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
       children: [
         if (showHero) ...[
-          const _HeroBanner(
+          _HeroBanner(
             color: AppColors.teal,
             eyebrow: 'Word library',
-            title: '단어 컬렉션을 덱별로\n차분하게 쌓아보세요.',
-            body: '검색과 덱 필터로 원하는 주제를 빠르게 찾고, 중요한 카드는 북마크로 다시 복습 큐에 불러올 수 있습니다.',
+            title: _tr(
+              context,
+              '단어 컬렉션을 덱별로\n차분하게 쌓아보세요.',
+              'Build your library\none deck at a time.',
+            ),
+            body: _tr(
+              context,
+              '검색과 덱 필터로 원하는 주제를 빠르게 찾고, 중요한 카드는 북마크로 다시 복습 큐에 불러올 수 있습니다.',
+              'Search and filter by deck, then pull important cards back into review with bookmarks.',
+            ),
           ),
           const SizedBox(height: 20),
         ],
@@ -739,12 +1058,16 @@ class _CollectionPage extends StatelessWidget {
           onChanged: onSearchChanged,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search_rounded),
-            hintText: '독일어, 한국어 뜻, 영어 뜻으로 검색',
+            hintText: _tr(
+              context,
+              '독일어, 한국어 뜻, 영어 뜻으로 검색',
+              'Search by word, Korean meaning, or English meaning',
+            ),
             suffixIcon: hasSearchText
                 ? IconButton(
                     onPressed: onClearSearch,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: '검색어 지우기',
+                    tooltip: _tr(context, '검색어 지우기', 'Clear search'),
                   )
                 : null,
           ),
@@ -770,15 +1093,23 @@ class _CollectionPage extends StatelessWidget {
             child: TextButton.icon(
               onPressed: onResetFilters,
               icon: const Icon(Icons.restart_alt_rounded),
-              label: const Text('검색과 덱 초기화'),
+              label: Text(_tr(context, '검색과 덱 초기화', 'Reset filters')),
             ),
           ),
         ],
         const SizedBox(height: 18),
         if (words.isEmpty)
-          const _EmptyPanel(
-            title: '조건에 맞는 단어가 없어요.',
-            message: '검색어를 바꾸거나 다른 덱을 선택해 보세요.',
+          _EmptyPanel(
+            title: _tr(
+              context,
+              '조건에 맞는 단어가 없어요.',
+              'No words match these filters.',
+            ),
+            message: _tr(
+              context,
+              '검색어를 바꾸거나 다른 덱을 선택해 보세요.',
+              'Try a different search term or choose another deck.',
+            ),
           )
         else
           ...words.map(
@@ -786,6 +1117,8 @@ class _CollectionPage extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: _CollectionWordTile(
                 word: word,
+                primaryMeaning: primaryMeaningOf(word),
+                secondaryMeaning: secondaryMeaningOf(word),
                 onBookmark: () => onBookmarkToggle(word),
                 onSpeakWord: () => onSpeakWord(word),
                 onSpeakExample: () => onSpeakExample(word),
@@ -824,18 +1157,34 @@ class _PracticePage extends StatelessWidget {
       return ListView(
         padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
         children: [
-          if (showHero) ...const [
+          if (showHero) ...[
             _HeroBanner(
               color: AppColors.gold,
               eyebrow: 'Review queue',
-              title: '오늘 복습 큐를\n깨끗하게 비웠습니다.',
-              body: '새 단어를 추가하면 즉시 복습 큐에 들어가도록 구성해 두었습니다.',
+              title: _tr(
+                context,
+                '오늘 복습 큐를\n깨끗하게 비웠습니다.',
+                'Your review queue\nis all clear.',
+              ),
+              body: _tr(
+                context,
+                '새 단어를 추가하면 즉시 복습 큐에 들어가도록 구성해 두었습니다.',
+                'New words are set to enter the review queue immediately.',
+              ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
           ],
           _EmptyPanel(
-            title: '지금은 복습할 카드가 없어요.',
-            message: '조금 있다가 다시 오거나 새 단어를 넣어 다음 세션을 시작해 보세요.',
+            title: _tr(
+              context,
+              '지금은 복습할 카드가 없어요.',
+              'There are no cards to review right now.',
+            ),
+            message: _tr(
+              context,
+              '조금 있다가 다시 오거나 새 단어를 넣어 다음 세션을 시작해 보세요.',
+              'Come back a little later or add new words to start the next session.',
+            ),
           ),
         ],
       );
@@ -850,9 +1199,16 @@ class _PracticePage extends StatelessWidget {
           _HeroBanner(
             color: AppColors.coral,
             eyebrow: 'Active recall',
-            title: '답을 보기 전에 먼저\n뜻과 장면을 떠올려 보세요.',
-            body:
-                '기억 여부에 따라 복습 간격을 자동으로 다시 배치합니다. 남은 복습은 ${dueWords.length}개입니다.',
+            title: _tr(
+              context,
+              '답을 보기 전에 먼저\n뜻과 장면을 떠올려 보세요.',
+              'Recall the meaning\nbefore revealing the answer.',
+            ),
+            body: _tr(
+              context,
+              '기억 여부에 따라 복습 간격을 자동으로 다시 배치합니다. 남은 복습은 ${dueWords.length}개입니다.',
+              'Review spacing is updated automatically from your answer. ${dueWords.length} cards remain.',
+            ),
           ),
           const SizedBox(height: 20),
         ],
@@ -867,7 +1223,14 @@ class _PracticePage extends StatelessWidget {
           onOpenCoach: () => onOpenCoach(current),
         ),
         const SizedBox(height: 20),
-        const _SectionTitle(title: '다음 카드', subtitle: '곧 이어서 복습하게 될 단어들입니다.'),
+        _SectionTitle(
+          title: _tr(context, '다음 카드', 'Next cards'),
+          subtitle: _tr(
+            context,
+            '곧 이어서 복습하게 될 단어들입니다.',
+            'These cards are coming up next in the review queue.',
+          ),
+        ),
         const SizedBox(height: 14),
         ...dueWords
             .skip(1)
@@ -896,7 +1259,10 @@ class _InsightsPage extends StatelessWidget {
       stream: repository.watchStudySessions(),
       builder: (context, snapshot) {
         final sessions = snapshot.data ?? const <StudySession>[];
-        final activity = _weeklyActivity(sessions);
+        final activity = _weeklyActivity(
+          sessions,
+          appLanguage: AppSettingsScope.of(context).appLanguage,
+        );
         final reviews = activity.fold<int>(0, (sum, day) => sum + day.reviews);
         final minutes = activity.fold<int>(0, (sum, day) => sum + day.minutes);
         final mastered = words.where((word) => word.mastery >= 4).length;
@@ -907,56 +1273,76 @@ class _InsightsPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
           children: [
-            if (showHero) ...const [
+            if (showHero) ...[
               _HeroBanner(
                 color: AppColors.gold,
                 eyebrow: 'Learning pulse',
-                title: '조용하지만 분명하게,\n학습 리듬을 숫자로 확인하세요.',
-                body: '최근 7일 학습량과 덱별 숙련도를 함께 보며 무엇을 더 끌어올려야 할지 빠르게 판단할 수 있습니다.',
+                title: _tr(
+                  context,
+                  '조용하지만 분명하게,\n학습 리듬을 숫자로 확인하세요.',
+                  'Quiet but clear,\ncheck your learning rhythm in numbers.',
+                ),
+                body: _tr(
+                  context,
+                  '최근 7일 학습량과 덱별 숙련도를 함께 보며 무엇을 더 끌어올려야 할지 빠르게 판단할 수 있습니다.',
+                  'Compare the last 7 days of activity and deck mastery to see what needs attention next.',
+                ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
             ],
             _AdaptiveCardGrid(
               minTileWidth: 170,
               maxColumns: 4,
               children: [
                 _MetricTile(
-                  label: '이번 주 복습',
+                  label: _tr(context, '이번 주 복습', 'Reviews this week'),
                   value: '$reviews',
-                  hint: '최근 7일 리뷰 수',
+                  hint: _tr(context, '최근 7일 리뷰 수', 'Last 7 days'),
                   color: AppColors.ink,
                 ),
                 _MetricTile(
-                  label: '학습 시간',
-                  value: '$minutes분',
-                  hint: '최근 7일 누적',
+                  label: _tr(context, '학습 시간', 'Study time'),
+                  value: _tr(context, '$minutes분', '$minutes min'),
+                  hint: _tr(context, '최근 7일 누적', 'Last 7 days total'),
                   color: AppColors.teal,
                 ),
                 _MetricTile(
-                  label: '고숙련',
+                  label: _tr(context, '고숙련', 'Strong cards'),
                   value: '$mastered',
-                  hint: '숙련도 4 이상',
+                  hint: _tr(context, '숙련도 4 이상', 'Mastery 4+'),
                   color: AppColors.gold,
                 ),
                 _MetricTile(
-                  label: '연속 학습',
-                  value: '${_streak(sessions)}일',
-                  hint: '오늘까지 이어진 루틴',
+                  label: _tr(context, '연속 학습', 'Streak'),
+                  value: _tr(
+                    context,
+                    '${_streak(sessions)}일',
+                    '${_streak(sessions)} days',
+                  ),
+                  hint: _tr(context, '오늘까지 이어진 루틴', 'Up to today'),
                   color: AppColors.coral,
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            const _SectionTitle(
-              title: '최근 7일 활동',
-              subtitle: '복습 수와 학습 시간을 가볍게 비교할 수 있는 주간 뷰입니다.',
+            _SectionTitle(
+              title: _tr(context, '최근 7일 활동', 'Last 7 days'),
+              subtitle: _tr(
+                context,
+                '복습 수와 학습 시간을 가볍게 비교할 수 있는 주간 뷰입니다.',
+                'A simple weekly view for comparing review counts and study time.',
+              ),
             ),
             const SizedBox(height: 14),
             _ActivityChart(days: activity),
             const SizedBox(height: 24),
-            const _SectionTitle(
-              title: '보강하면 좋은 덱',
-              subtitle: '평균 숙련도가 낮은 순서대로 정렬했습니다.',
+            _SectionTitle(
+              title: _tr(context, '보강하면 좋은 덱', 'Decks to reinforce'),
+              subtitle: _tr(
+                context,
+                '평균 숙련도가 낮은 순서대로 정렬했습니다.',
+                'Ordered from the lowest average mastery.',
+              ),
             ),
             const SizedBox(height: 14),
             ...weakestDeck.map(
@@ -1004,8 +1390,8 @@ class _RailCard extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          const ListTile(
-            title: Text(
+          ListTile(
+            title: const Text(
               'Deutsch Flow',
               style: TextStyle(
                 fontSize: 22,
@@ -1013,7 +1399,7 @@ class _RailCard extends StatelessWidget {
                 color: AppColors.ink,
               ),
             ),
-            subtitle: Text('Drift + WASM 독일어 학습 루틴'),
+            subtitle: Text(_tr(context, '언어 학습 루틴', 'language study routine')),
           ),
           Expanded(
             child: NavigationRail(
@@ -1022,13 +1408,13 @@ class _RailCard extends StatelessWidget {
               backgroundColor: Colors.transparent,
               labelType: NavigationRailLabelType.all,
               destinations: [
-                const NavigationRailDestination(
+                NavigationRailDestination(
                   icon: Icon(Icons.home_rounded),
-                  label: Text('홈'),
+                  label: Text(_tr(context, '홈', 'Home')),
                 ),
-                const NavigationRailDestination(
+                NavigationRailDestination(
                   icon: Icon(Icons.layers_rounded),
-                  label: Text('컬렉션'),
+                  label: Text(_tr(context, '컬렉션', 'Library')),
                 ),
                 NavigationRailDestination(
                   icon: Badge(
@@ -1036,15 +1422,15 @@ class _RailCard extends StatelessWidget {
                     isLabelVisible: dueCount > 0,
                     child: const Icon(Icons.bolt_rounded),
                   ),
-                  label: const Text('복습'),
+                  label: Text(_tr(context, '복습', 'Review')),
                 ),
-                const NavigationRailDestination(
+                NavigationRailDestination(
                   icon: Icon(Icons.explore_rounded),
-                  label: Text('실전'),
+                  label: Text(_tr(context, '실전', 'Immersion')),
                 ),
-                const NavigationRailDestination(
+                NavigationRailDestination(
                   icon: Icon(Icons.insights_rounded),
-                  label: Text('통계'),
+                  label: Text(_tr(context, '통계', 'Insights')),
                 ),
               ],
             ),
@@ -1056,9 +1442,13 @@ class _RailCard extends StatelessWidget {
               color: AppColors.gold.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: const Text(
-              '새 단어를 추가하면 즉시 복습 큐에 들어가도록 설정해 두었습니다.',
-              style: TextStyle(height: 1.5, color: Color(0xFF5F6F7C)),
+            child: Text(
+              _tr(
+                context,
+                '새 단어를 추가하면 즉시 복습 큐에 들어가도록 설정해 두었습니다.',
+                'New words are configured to enter the review queue right away.',
+              ),
+              style: const TextStyle(height: 1.5, color: Color(0xFF5F6F7C)),
             ),
           ),
         ],
@@ -1072,12 +1462,14 @@ class _ContentCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.badge,
+    required this.headerActions,
     required this.child,
   });
 
   final String title;
   final String subtitle;
   final String badge;
+  final Widget headerActions;
   final Widget child;
 
   @override
@@ -1122,7 +1514,19 @@ class _ContentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (layout.maxWidth < 560) ...[
-                    ...header,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: header,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        headerActions,
+                      ],
+                    ),
                     const SizedBox(height: 14),
                     _HeaderBadge(badge: badge),
                   ] else
@@ -1136,6 +1540,8 @@ class _ContentCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
+                        headerActions,
+                        const SizedBox(width: 12),
                         _HeaderBadge(badge: badge),
                       ],
                     ),
@@ -1156,12 +1562,14 @@ class _MobilePageLayout extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.badge,
+    required this.headerActions,
     required this.child,
   });
 
   final String title;
   final String subtitle;
   final String badge;
+  final Widget headerActions;
   final Widget child;
 
   @override
@@ -1169,7 +1577,12 @@ class _MobilePageLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _PageIntroHeader(title: title, subtitle: subtitle, badge: badge),
+        _PageIntroHeader(
+          title: title,
+          subtitle: subtitle,
+          badge: badge,
+          headerActions: headerActions,
+        ),
         const SizedBox(height: 18),
         Expanded(child: child),
       ],
@@ -1182,11 +1595,13 @@ class _PageIntroHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.badge,
+    required this.headerActions,
   });
 
   final String title;
   final String subtitle;
   final String badge;
+  final Widget headerActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1206,11 +1621,19 @@ class _PageIntroHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (layout.maxWidth < 420) ...[
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontSize: layout.isCompact ? 26 : 30,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(fontSize: layout.isCompact ? 26 : 30),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    headerActions,
+                  ],
                 ),
                 const SizedBox(height: 12),
                 _MobileHeaderBadge(label: badge),
@@ -1225,6 +1648,8 @@ class _PageIntroHeader extends StatelessWidget {
                             ?.copyWith(fontSize: layout.isCompact ? 26 : 30),
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    headerActions,
                     const SizedBox(width: 12),
                     _MobileHeaderBadge(label: badge),
                   ],
@@ -1246,6 +1671,34 @@ class _PageIntroHeader extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _HeaderActions extends StatelessWidget {
+  const _HeaderActions({required this.onOpenSettings, this.onOpenExamBuilder});
+
+  final VoidCallback onOpenSettings;
+  final VoidCallback? onOpenExamBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (onOpenExamBuilder != null)
+          IconButton.filledTonal(
+            onPressed: onOpenExamBuilder,
+            tooltip: _tr(context, '읽기·듣기·말하기 연습', 'Practice lab'),
+            icon: const Icon(Icons.headset_mic_rounded),
+          ),
+        IconButton.filledTonal(
+          onPressed: onOpenSettings,
+          tooltip: _tr(context, '학습 설정', 'Study settings'),
+          icon: const Icon(Icons.tune_rounded),
+        ),
+      ],
     );
   }
 }
@@ -1497,7 +1950,7 @@ class _DashboardModuleCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '열어서 보기',
+                          _tr(context, '열어서 보기', 'Open'),
                           style: TextStyle(
                             color: module.color,
                             fontWeight: FontWeight.w700,
@@ -1571,7 +2024,10 @@ List<_DeckSummary> _deckSummaries(List<VocabWord> words) {
   ];
 }
 
-List<_DayActivity> _weeklyActivity(List<StudySession> sessions) {
+List<_DayActivity> _weeklyActivity(
+  List<StudySession> sessions, {
+  required AppLanguage appLanguage,
+}) {
   final now = DateTime.now();
   return List.generate(7, (index) {
     final day = DateUtils.dateOnly(now.subtract(Duration(days: 6 - index)));
@@ -1583,7 +2039,7 @@ List<_DayActivity> _weeklyActivity(List<StudySession> sessions) {
           day,
     );
     return _DayActivity(
-      _weekday(day.weekday),
+      _weekday(day.weekday, appLanguage: appLanguage),
       related.fold<int>(0, (sum, item) => sum + item.reviewedCount),
       related.fold<int>(0, (sum, item) => sum + item.minutesSpent),
     );
@@ -1607,9 +2063,14 @@ int _streak(List<StudySession> sessions) {
   return count;
 }
 
-String _weekday(int weekday) {
-  const labels = ['월', '화', '수', '목', '금', '토', '일'];
-  return labels[(weekday - 1).clamp(0, 6)];
+String _weekday(int weekday, {required AppLanguage appLanguage}) {
+  const koreanLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  const englishLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final index = (weekday - 1).clamp(0, 6);
+  return appLanguage.copy(
+    korean: koreanLabels[index],
+    english: englishLabels[index],
+  );
 }
 
 class _HeroBanner extends StatelessWidget {
@@ -1872,12 +2333,12 @@ class _EmptyPanel extends StatelessWidget {
 class _GrammarNotePanel extends StatelessWidget {
   const _GrammarNotePanel({
     required this.note,
-    this.title = '문법 메모',
+    this.title,
     this.color = AppColors.teal,
   });
 
   final String note;
-  final String title;
+  final String? title;
   final Color color;
 
   @override
@@ -1893,7 +2354,7 @@ class _GrammarNotePanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            title ?? _tr(context, '문법 메모', 'Grammar notes'),
             style: TextStyle(color: color, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
@@ -1931,6 +2392,8 @@ class _FocusWordTile extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final layout = ResponsiveLayout.fromConstraints(constraints);
+        final primaryMeaning = _uiPrimaryMeaning(context, word);
+        final secondaryMeaning = _uiSecondaryMeaning(context, word);
 
         return Container(
           padding: EdgeInsets.all(layout.cardPadding),
@@ -1951,7 +2414,7 @@ class _FocusWordTile extends StatelessWidget {
                       children: [
                         _deckChip(word.deck),
                         if (_isTodayRecommendation(word))
-                          _statusChip('오늘 추천', AppColors.gold),
+                          _statusChip(_todayPickLabel(context), AppColors.gold),
                       ],
                     ),
                   ),
@@ -1967,17 +2430,16 @@ class _FocusWordTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                _headline(word),
-                style: TextStyle(
-                  fontSize: layout.isCompact ? 23 : 27,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
+              _SpeakableWordHeadline(
+                text: _headline(word),
+                fontSize: layout.isCompact ? 23 : 27,
+                onTap: onSpeakWord,
               ),
               const SizedBox(height: 8),
               Text(
-                '${word.meaningKo}  |  ${word.meaningEn}',
+                secondaryMeaning.trim().isEmpty
+                    ? primaryMeaning
+                    : '$primaryMeaning  |  $secondaryMeaning',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -1986,7 +2448,7 @@ class _FocusWordTile extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '발음: ${word.pronunciation}  |  음성: ${_voiceLocaleLabel(word.ttsLocale)}',
+                _pronunciationLine(context, word),
                 style: const TextStyle(
                   color: Color(0xFF617180),
                   fontWeight: FontWeight.w600,
@@ -1999,17 +2461,17 @@ class _FocusWordTile extends StatelessWidget {
                 children: [
                   _SpeechActionButton(
                     icon: Icons.volume_up_rounded,
-                    label: '단어 듣기',
+                    label: _wordAudioLabel(context),
                     onPressed: onSpeakWord,
                   ),
                   _SpeechActionButton(
                     icon: Icons.record_voice_over_rounded,
-                    label: '예문 듣기',
+                    label: _exampleAudioLabel(context),
                     onPressed: onSpeakExample,
                   ),
                   _SpeechActionButton(
                     icon: Icons.mic_external_on_rounded,
-                    label: '발음 점검',
+                    label: _pronunciationCoachLabel(context),
                     onPressed: onOpenCoach,
                   ),
                 ],
@@ -2038,7 +2500,10 @@ class _FocusWordTile extends StatelessWidget {
               ),
               if (_grammarNote(word).isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _GrammarNotePanel(note: _grammarNote(word)),
+                _GrammarNotePanel(
+                  title: _tr(context, '형태 변화와 문법', 'Forms and grammar'),
+                  note: _grammarNote(word),
+                ),
               ],
             ],
           ),
@@ -2084,7 +2549,7 @@ class _DeckProgressTile extends StatelessWidget {
                 ),
               ),
               Text(
-                '${summary.total}개',
+                _tr(context, '${summary.total}개', '${summary.total} items'),
                 style: const TextStyle(
                   color: Color(0xFF60707F),
                   fontWeight: FontWeight.w700,
@@ -2104,7 +2569,11 @@ class _DeckProgressTile extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '숙련도 ${(summary.ratio * 100).round()}%  |  북마크 ${summary.bookmarks}개',
+            _tr(
+              context,
+              '숙련도 ${(summary.ratio * 100).round()}%  |  북마크 ${summary.bookmarks}개',
+              'Mastery ${(summary.ratio * 100).round()}%  |  Bookmarks ${summary.bookmarks}',
+            ),
             style: const TextStyle(
               color: Color(0xFF60707F),
               fontWeight: FontWeight.w600,
@@ -2119,6 +2588,8 @@ class _DeckProgressTile extends StatelessWidget {
 class _CollectionWordTile extends StatelessWidget {
   const _CollectionWordTile({
     required this.word,
+    required this.primaryMeaning,
+    required this.secondaryMeaning,
     required this.onBookmark,
     required this.onSpeakWord,
     required this.onSpeakExample,
@@ -2126,6 +2597,8 @@ class _CollectionWordTile extends StatelessWidget {
   });
 
   final VocabWord word;
+  final String primaryMeaning;
+  final String secondaryMeaning;
   final VoidCallback onBookmark;
   final Future<void> Function() onSpeakWord;
   final Future<void> Function() onSpeakExample;
@@ -2162,7 +2635,7 @@ class _CollectionWordTile extends StatelessWidget {
                       children: [
                         _deckChip(word.deck),
                         if (_isTodayRecommendation(word))
-                          _statusChip('오늘 추천', AppColors.gold),
+                          _statusChip(_todayPickLabel(context), AppColors.gold),
                       ],
                     ),
                   ),
@@ -2180,13 +2653,10 @@ class _CollectionWordTile extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                _headline(word),
-                style: TextStyle(
-                  fontSize: layout.isCompact ? 22 : 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
+              _SpeakableWordHeadline(
+                text: _headline(word),
+                fontSize: layout.isCompact ? 22 : 24,
+                onTap: onSpeakWord,
               ),
               const SizedBox(height: 6),
               Text(
@@ -2198,7 +2668,9 @@ class _CollectionWordTile extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '${word.meaningKo}  |  ${word.meaningEn}',
+                secondaryMeaning.trim().isEmpty
+                    ? primaryMeaning
+                    : '$primaryMeaning  |  $secondaryMeaning',
                 style: const TextStyle(
                   fontSize: 15,
                   height: 1.5,
@@ -2207,7 +2679,7 @@ class _CollectionWordTile extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '음성 locale: ${_voiceLocaleLabel(word.ttsLocale)}',
+                _voiceLocaleLine(context, word),
                 style: const TextStyle(
                   color: Color(0xFF617180),
                   fontWeight: FontWeight.w600,
@@ -2220,17 +2692,17 @@ class _CollectionWordTile extends StatelessWidget {
                 children: [
                   _SpeechActionButton(
                     icon: Icons.volume_up_rounded,
-                    label: '단어 듣기',
+                    label: _wordAudioLabel(context),
                     onPressed: onSpeakWord,
                   ),
                   _SpeechActionButton(
                     icon: Icons.record_voice_over_rounded,
-                    label: '예문 듣기',
+                    label: _exampleAudioLabel(context),
                     onPressed: onSpeakExample,
                   ),
                   _SpeechActionButton(
                     icon: Icons.mic_external_on_rounded,
-                    label: '발음 점검',
+                    label: _pronunciationCoachLabel(context),
                     onPressed: onOpenCoach,
                   ),
                 ],
@@ -2260,6 +2732,7 @@ class _CollectionWordTile extends StatelessWidget {
               if (_grammarNote(word).isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _GrammarNotePanel(
+                  title: _tr(context, '형태 변화와 문법', 'Forms and grammar'),
                   note: _grammarNote(word),
                   color: AppColors.gold,
                 ),
@@ -2277,7 +2750,7 @@ class _CollectionWordTile extends StatelessWidget {
                       mastery: word.mastery,
                     ),
                     Text(
-                      _reviewLabel(word.nextReviewAt),
+                      _reviewLabel(context, word.nextReviewAt),
                       style: const TextStyle(
                         color: Color(0xFF617180),
                         fontWeight: FontWeight.w600,
@@ -2294,7 +2767,7 @@ class _CollectionWordTile extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      _reviewLabel(word.nextReviewAt),
+                      _reviewLabel(context, word.nextReviewAt),
                       style: const TextStyle(
                         color: Color(0xFF617180),
                         fontWeight: FontWeight.w600,
@@ -2325,7 +2798,7 @@ class _MasteryPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
-        '숙련도 $mastery/5',
+        _masteryLabel(context, mastery),
         style: TextStyle(color: masteryColor, fontWeight: FontWeight.w700),
       ),
     );
@@ -2358,6 +2831,13 @@ class _PracticeCard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final layout = ResponsiveLayout.fromConstraints(constraints);
+        final primaryMeaning = _uiPrimaryMeaning(context, word);
+        final secondaryMeaning = _uiSecondaryMeaning(context, word);
+        final detailLines = <String>[
+          if (secondaryMeaning.trim().isNotEmpty) secondaryMeaning,
+          word.exampleSentence,
+          word.exampleTranslation,
+        ];
 
         return Container(
           padding: EdgeInsets.all(layout.cardPadding),
@@ -2378,13 +2858,13 @@ class _PracticeCard extends StatelessWidget {
                       children: [
                         _deckChip(word.deck),
                         if (_isTodayRecommendation(word))
-                          _statusChip('오늘 추천', AppColors.gold),
+                          _statusChip(_todayPickLabel(context), AppColors.gold),
                       ],
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '리뷰 ${word.timesReviewed}회',
+                    _reviewCountLabel(context, word.timesReviewed),
                     style: const TextStyle(
                       color: Color(0xFF60707F),
                       fontWeight: FontWeight.w700,
@@ -2393,18 +2873,15 @@ class _PracticeCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              Text(
-                _headline(word),
-                style: TextStyle(
-                  fontSize: layout.isCompact ? 28 : 34,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                  color: AppColors.ink,
-                ),
+              _SpeakableWordHeadline(
+                text: _headline(word),
+                fontSize: layout.isCompact ? 28 : 34,
+                lineHeight: 1.1,
+                onTap: onSpeakWord,
               ),
               const SizedBox(height: 12),
               Text(
-                '발음 메모: ${word.pronunciation}\n음성 locale: ${_voiceLocaleLabel(word.ttsLocale)}',
+                _pronunciationMemoLine(context, word),
                 style: const TextStyle(
                   color: Color(0xFF60707F),
                   fontWeight: FontWeight.w700,
@@ -2417,17 +2894,17 @@ class _PracticeCard extends StatelessWidget {
                 children: [
                   _SpeechActionButton(
                     icon: Icons.volume_up_rounded,
-                    label: '단어 듣기',
+                    label: _wordAudioLabel(context),
                     onPressed: onSpeakWord,
                   ),
                   _SpeechActionButton(
                     icon: Icons.record_voice_over_rounded,
-                    label: '예문 듣기',
+                    label: _exampleAudioLabel(context),
                     onPressed: onSpeakExample,
                   ),
                   _SpeechActionButton(
                     icon: Icons.mic_external_on_rounded,
-                    label: '발음 점검',
+                    label: _pronunciationCoachLabel(context),
                     onPressed: onOpenCoach,
                   ),
                 ],
@@ -2446,7 +2923,13 @@ class _PracticeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      revealAnswer ? word.meaningKo : '먼저 뜻을 떠올려 보세요.',
+                      revealAnswer
+                          ? primaryMeaning
+                          : _tr(
+                              context,
+                              '먼저 뜻을 떠올려 보세요.',
+                              'Try to recall the meaning first.',
+                            ),
                       style: TextStyle(
                         fontSize: layout.isCompact ? 20 : 22,
                         fontWeight: FontWeight.w800,
@@ -2456,8 +2939,12 @@ class _PracticeCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       revealAnswer
-                          ? '${word.meaningEn}\n${word.exampleSentence}\n${word.exampleTranslation}'
-                          : '뜻을 확인하기 전에는 예문과 해석이 가려집니다.',
+                          ? detailLines.join('\n')
+                          : _tr(
+                              context,
+                              '뜻을 확인하기 전에는 예문과 해석이 가려집니다.',
+                              'Example lines stay hidden until you reveal the answer.',
+                            ),
                       style: const TextStyle(
                         fontSize: 15,
                         height: 1.55,
@@ -2470,7 +2957,7 @@ class _PracticeCard extends StatelessWidget {
               if (revealAnswer && _grammarNote(word).isNotEmpty) ...[
                 const SizedBox(height: 14),
                 _GrammarNotePanel(
-                  title: '문법 포인트',
+                  title: _tr(context, '형태 변화와 문법', 'Forms and grammar'),
                   note: _grammarNote(word),
                   color: AppColors.gold,
                 ),
@@ -2482,7 +2969,7 @@ class _PracticeCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onReveal,
                     icon: const Icon(Icons.visibility_rounded),
-                    label: const Text('뜻 보기'),
+                    label: Text(_tr(context, '뜻 보기', 'Reveal answer')),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       side: BorderSide(
@@ -2499,7 +2986,7 @@ class _PracticeCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onForgot,
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('다시 보기'),
+                        label: Text(_tr(context, '다시 보기', 'Review again')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.coral,
                           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -2513,7 +3000,7 @@ class _PracticeCard extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onRemembered,
                         icon: const Icon(Icons.check_rounded),
-                        label: const Text('기억했어요'),
+                        label: Text(_tr(context, '기억했어요', 'I remembered it')),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.ink,
                           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -2529,7 +3016,7 @@ class _PracticeCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onForgot,
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('다시 보기'),
+                        label: Text(_tr(context, '다시 보기', 'Review again')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.coral,
                           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -2542,7 +3029,7 @@ class _PracticeCard extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onRemembered,
                         icon: const Icon(Icons.check_rounded),
-                        label: const Text('기억했어요'),
+                        label: Text(_tr(context, '기억했어요', 'I remembered it')),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.ink,
                           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -2569,6 +3056,7 @@ class _QueueTile extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 420;
+        final primaryMeaning = _uiPrimaryMeaning(context, word);
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -2606,12 +3094,12 @@ class _QueueTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      word.meaningKo,
+                      primaryMeaning,
                       style: const TextStyle(color: Color(0xFF617180)),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '숙련도 ${word.mastery}/5',
+                      _masteryLabel(context, word.mastery),
                       style: const TextStyle(
                         color: Color(0xFF617180),
                         fontWeight: FontWeight.w700,
@@ -2644,14 +3132,14 @@ class _QueueTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            word.meaningKo,
+                            primaryMeaning,
                             style: const TextStyle(color: Color(0xFF617180)),
                           ),
                         ],
                       ),
                     ),
                     Text(
-                      '숙련도 ${word.mastery}/5',
+                      _masteryLabel(context, word.mastery),
                       style: const TextStyle(
                         color: Color(0xFF617180),
                         fontWeight: FontWeight.w700,
@@ -2686,6 +3174,44 @@ class _SpeechActionButton extends StatelessWidget {
         foregroundColor: AppColors.ink,
         side: BorderSide(color: AppColors.ink.withValues(alpha: 0.12)),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+    );
+  }
+}
+
+class _SpeakableWordHeadline extends StatelessWidget {
+  const _SpeakableWordHeadline({
+    required this.text,
+    required this.fontSize,
+    required this.onTap,
+    this.lineHeight,
+  });
+
+  final String text;
+  final double fontSize;
+  final double? lineHeight;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: _tr(context, '$text 듣기', 'Play $text'),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              height: lineHeight,
+              color: AppColors.ink,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2766,7 +3292,11 @@ class _ActivityChart extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${day.minutes}분',
+                            _tr(
+                              context,
+                              '${day.minutes}분',
+                              '${day.minutes} min',
+                            ),
                             style: const TextStyle(
                               color: Color(0xFF60707F),
                               fontSize: 12,
@@ -2832,26 +3362,33 @@ bool _isTodayRecommendation(VocabWord word) {
           dailyRecommendationDateKey(DateTime.now());
 }
 
-String _reviewLabel(int? timestamp) {
+String _reviewLabel(BuildContext context, int? timestamp) {
   if (timestamp == null) {
-    return '지금 복습';
+    return _tr(context, '지금 복습', 'Review now');
   }
 
   final now = DateTime.now();
   final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
   if (!date.isAfter(now)) {
-    return '지금 복습';
+    return _tr(context, '지금 복습', 'Review now');
   }
   final diff = date.difference(now);
   if (diff.inHours < 1) {
-    return '${diff.inMinutes}분 후';
+    return _tr(context, '${diff.inMinutes}분 후', 'In ${diff.inMinutes} min');
   }
   if (diff.inHours < 24) {
-    return '${diff.inHours}시간 후';
+    return _tr(context, '${diff.inHours}시간 후', 'In ${diff.inHours} hr');
   }
-  return '${diff.inDays}일 후';
+  return _tr(context, '${diff.inDays}일 후', 'In ${diff.inDays} days');
 }
 
-String _voiceLocaleLabel(String locale) {
-  return voiceLocaleFromCode(locale).displayLabel;
+String _voiceLocaleCodeForWord(VocabWord word) {
+  return voiceLocaleForLanguageCode(
+    languageCode: word.languageCode,
+    requestedLocale: word.ttsLocale,
+  );
+}
+
+String _wordVoiceLocaleLabel(VocabWord word) {
+  return voiceLocaleFromCode(_voiceLocaleCodeForWord(word)).displayLabel;
 }

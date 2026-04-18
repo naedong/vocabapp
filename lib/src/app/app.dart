@@ -3,17 +3,22 @@ import 'package:flutter/material.dart';
 import '../core/audio/pronunciation_assessment_service.dart';
 import '../core/audio/pronunciation_service.dart';
 import '../core/database/app_database.dart';
+import '../core/localization/app_locale.dart';
 import '../core/logging/app_logger.dart';
+import '../core/settings/app_settings.dart';
+import '../core/settings/app_settings_repository.dart';
+import '../core/settings/app_settings_scope.dart';
 import '../features/dictionary/application/dictionary_repository.dart';
 import '../features/immersion/application/immersion_repository.dart';
 import '../features/immersion/application/news_feed_repository.dart';
+import '../features/study/application/generative_text_service.dart';
 import '../features/study/application/study_repository.dart';
 import '../features/study/application/study_coach_service.dart';
 import '../features/study/presentation/pages/study_home_page.dart';
 import 'app_theme.dart';
 import 'responsive_layout.dart';
 
-class DeutschFlowApp extends StatelessWidget {
+class DeutschFlowApp extends StatefulWidget {
   const DeutschFlowApp({
     super.key,
     this.database,
@@ -28,16 +33,36 @@ class DeutschFlowApp extends StatelessWidget {
   final StudyCoachService? studyCoachService;
 
   @override
+  State<DeutschFlowApp> createState() => _DeutschFlowAppState();
+}
+
+class _DeutschFlowAppState extends State<DeutschFlowApp> {
+  @override
+  void initState() {
+    super.initState();
+    AppLocalization.instance.onTranslatedLanguage = (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Deutsch Flow',
+      title: AppLocale.resolveCode(
+        AppLocalization.instance.currentLocale?.languageCode,
+        AppLocale.appTitle,
+      ),
       debugShowCheckedModeBanner: false,
+      supportedLocales: AppLocalization.instance.supportedLocales,
+      localizationsDelegates: AppLocalization.instance.localizationsDelegates,
       theme: AppTheme.light(),
       home: AppBootstrap(
-        database: database,
-        pronunciationService: pronunciationService,
-        pronunciationAssessmentService: pronunciationAssessmentService,
-        studyCoachService: studyCoachService,
+        database: widget.database,
+        pronunciationService: widget.pronunciationService,
+        pronunciationAssessmentService: widget.pronunciationAssessmentService,
+        studyCoachService: widget.studyCoachService,
       ),
     );
   }
@@ -67,6 +92,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
   late final DictionaryRepository _dictionaryRepository;
   late final ImmersionRepository _immersionRepository;
   late final NewsFeedRepository _newsFeedRepository;
+  late final AppSettingsRepository _appSettingsRepository;
+  late final HybridGenerativeTextService _generativeTextService;
   late final PronunciationService _pronunciationService;
   late final PronunciationAssessmentService _pronunciationAssessmentService;
   late final StudyCoachService _studyCoachService;
@@ -88,7 +115,11 @@ class _AppBootstrapState extends State<AppBootstrap> {
     _ownsStudyCoachService = widget.studyCoachService == null;
     _database = widget.database ?? AppDatabase();
     _repository = StudyRepository(_database);
-    _dictionaryRepository = DictionaryRepository();
+    _appSettingsRepository = AppSettingsRepository(_database);
+    _generativeTextService = HybridGenerativeTextService();
+    _dictionaryRepository = DictionaryRepository(
+      generativeTextService: _generativeTextService,
+    );
     _immersionRepository = ImmersionRepository(_database);
     _newsFeedRepository = NewsFeedRepository(database: _database);
     _pronunciationService =
@@ -96,7 +127,9 @@ class _AppBootstrapState extends State<AppBootstrap> {
     _pronunciationAssessmentService =
         widget.pronunciationAssessmentService ??
         SpeechToTextPronunciationAssessmentService();
-    _studyCoachService = widget.studyCoachService ?? OpenAiStudyCoachService();
+    _studyCoachService =
+        widget.studyCoachService ??
+        AiStudyCoachService(generativeTextService: _generativeTextService);
     _setupFuture = _database
         .initialize()
         .then((_) {
@@ -120,6 +153,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
     _immersionRepository.dispose();
     _newsFeedRepository.dispose();
     _dictionaryRepository.dispose();
+    _generativeTextService.dispose();
     if (_ownsDatabase) {
       _database.close();
     }
@@ -143,30 +177,44 @@ class _AppBootstrapState extends State<AppBootstrap> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _BootstrapView(
             title: 'Deutsch Flow',
-            message: '로컬 학습 공간과 복습 큐를 준비하고 있어요.',
+            message: 'Preparing your local study space and review queue.',
             loading: true,
           );
         }
 
         if (snapshot.hasError) {
           return _BootstrapView(
-            title: '초기화 실패',
+            title: 'Initialization failed',
             message:
-                'Drift 데이터베이스를 여는 중 문제가 발생했습니다.\n'
+                'A problem occurred while opening the Drift database.\n'
                 '${_setupError ?? snapshot.error}\n\n'
                 '${_shortStack(_setupStackTrace)}',
             loading: false,
           );
         }
 
-        return StudyHomePage(
-          repository: _repository,
-          dictionaryRepository: _dictionaryRepository,
-          immersionRepository: _immersionRepository,
-          newsFeedRepository: _newsFeedRepository,
-          pronunciationService: _pronunciationService,
-          pronunciationAssessmentService: _pronunciationAssessmentService,
-          studyCoachService: _studyCoachService,
+        return StreamBuilder<AppSettingsData>(
+          stream: _appSettingsRepository.watchSettings(),
+          initialData: AppSettingsData.defaults,
+          builder: (context, settingsSnapshot) {
+            final settings = settingsSnapshot.data ?? AppSettingsData.defaults;
+            AppLocalization.syncLanguageCode(settings.appLanguage.code);
+
+            return AppSettingsScope(
+              settings: settings,
+              child: StudyHomePage(
+                repository: _repository,
+                dictionaryRepository: _dictionaryRepository,
+                immersionRepository: _immersionRepository,
+                newsFeedRepository: _newsFeedRepository,
+                pronunciationService: _pronunciationService,
+                pronunciationAssessmentService: _pronunciationAssessmentService,
+                studyCoachService: _studyCoachService,
+                appSettingsRepository: _appSettingsRepository,
+                settings: settings,
+              ),
+            );
+          },
         );
       },
     );
@@ -175,7 +223,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
 String _shortStack(StackTrace? stackTrace) {
   if (stackTrace == null) {
-    return '스택 트레이스를 확인할 수 없습니다.';
+    return 'No stack trace available.';
   }
 
   final lines = stackTrace
@@ -185,7 +233,7 @@ String _shortStack(StackTrace? stackTrace) {
       .take(4)
       .join('\n');
 
-  return lines.isEmpty ? '스택 트레이스를 확인할 수 없습니다.' : lines;
+  return lines.isEmpty ? 'No stack trace available.' : lines;
 }
 
 class _BootstrapView extends StatelessWidget {
@@ -207,34 +255,40 @@ class _BootstrapView extends StatelessWidget {
             _BootstrapStatusItem(
               icon: Icons.storage_rounded,
               title: 'Local storage',
-              body: '저장된 단어장과 복습 기록을 안정적으로 불러오는 중입니다.',
+              body:
+                  'Loading saved cards and review history from local storage.',
             ),
             _BootstrapStatusItem(
               icon: Icons.bolt_rounded,
               title: 'Review queue',
-              body: '오늘 다시 볼 카드와 추천 단어를 다시 계산하고 있어요.',
+              body:
+                  'Rebuilding today\'s review queue and saved recommendations.',
             ),
             _BootstrapStatusItem(
               icon: Icons.record_voice_over_rounded,
               title: 'Speech tools',
-              body: '발음 듣기와 점검 화면에 필요한 음성 도구를 준비합니다.',
+              body:
+                  'Preparing the speech tools used for listening and pronunciation checks.',
             ),
           ]
         : const [
             _BootstrapStatusItem(
               icon: Icons.storage_outlined,
               title: 'Database check',
-              body: '로컬 데이터베이스 파일과 초기화 상태를 먼저 확인해 주세요.',
+              body:
+                  'Check the local database file and its initialization state first.',
             ),
             _BootstrapStatusItem(
               icon: Icons.tune_rounded,
               title: 'Environment',
-              body: '개발 환경이나 권한 설정이 달라졌는지 같이 점검하면 좋습니다.',
+              body:
+                  'It may help to verify whether permissions or environment settings changed.',
             ),
             _BootstrapStatusItem(
               icon: Icons.receipt_long_rounded,
               title: 'Error details',
-              body: '표시된 메시지와 스택 일부를 기준으로 문제 지점을 빠르게 좁힐 수 있어요.',
+              body:
+                  'Use the message and short stack trace to narrow the failure point quickly.',
             ),
           ];
 
@@ -394,9 +448,13 @@ class _BootstrapHeroCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _BootstrapPill(label: loading ? 'Drift 로컬 저장소' : '오류 메시지 확인'),
-              _BootstrapPill(label: loading ? '복습 큐 구성' : '환경 설정 점검'),
-              _BootstrapPill(label: loading ? '발음 도구 연결' : '재시도 준비'),
+              _BootstrapPill(
+                label: loading ? 'Drift local store' : 'Check error message',
+              ),
+              _BootstrapPill(
+                label: loading ? 'Review queue' : 'Inspect environment',
+              ),
+              _BootstrapPill(label: loading ? 'Speech tools' : 'Prepare retry'),
             ],
           ),
           SizedBox(height: layout.sectionGap),
@@ -414,7 +472,7 @@ class _BootstrapHeroCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                '앱을 다시 실행하면 초기화가 다시 시도됩니다. 같은 문제가 반복되면 데이터베이스 생성 단계부터 확인해 보세요.',
+                'Restarting the app will retry initialization. If the same issue repeats, start by checking database creation.',
                 style: TextStyle(
                   height: 1.5,
                   color: Color(0xFF5B6C7A),
@@ -454,7 +512,7 @@ class _BootstrapStatusPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            loading ? '현재 준비 중인 항목' : '지금 먼저 볼 항목',
+            loading ? 'Preparing now' : 'Check first',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -464,8 +522,8 @@ class _BootstrapStatusPanel extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             loading
-                ? '모든 디바이스에서 같은 학습 상태를 안정적으로 불러오기 위해 초기 구성을 순서대로 진행합니다.'
-                : '표시된 내용을 기준으로 원인을 빠르게 좁힐 수 있게 핵심 점검 항목만 남겼습니다.',
+                ? 'Initial setup runs in sequence so the same study state can load reliably across devices.'
+                : 'Only the key checkpoints are shown so you can narrow down the cause quickly.',
             style: const TextStyle(height: 1.55, color: Color(0xFF5E7080)),
           ),
           const SizedBox(height: 16),

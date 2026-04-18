@@ -75,10 +75,7 @@ class ArticleSourceClient {
       AppLogger.info(
         'ArticleSourceClient',
         'Source body extracted.',
-        details: <String, Object?>{
-          'url': url,
-          'length': body.length,
-        },
+        details: <String, Object?>{'url': url, 'length': body.length},
       );
       return body;
     } catch (error, stackTrace) {
@@ -107,12 +104,13 @@ class ArticleSourceClient {
     ];
 
     for (final candidate in candidates) {
-      final paragraphs = RegExp(
-        r'<p[^>]*>([\s\S]*?)</p>',
-        caseSensitive: false,
-      ).allMatches(candidate).map((match) {
-        return sanitizeArticleBody(match.group(1));
-      }).where((paragraph) => paragraph.isNotEmpty).toList();
+      final paragraphs = RegExp(r'<p[^>]*>([\s\S]*?)</p>', caseSensitive: false)
+          .allMatches(candidate)
+          .map((match) {
+            return sanitizeArticleBody(match.group(1));
+          })
+          .where((paragraph) => paragraph.isNotEmpty)
+          .toList();
 
       final joined = paragraphs.join('\n\n').trim();
       if (joined.length >= 450) {

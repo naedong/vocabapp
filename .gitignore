@@ -231,3 +231,4 @@ web/drift_worker.js.map
 # Local API secrets
 lib/src/core/config/news_api_secrets.dart
 lib/src/core/config/openai_secrets.dart
+lib/src/core/config/gemini_secrets.dart

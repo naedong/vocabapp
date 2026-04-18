@@ -7,7 +7,9 @@ import '../../../../app/responsive_layout.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/config/news_api_config.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/localization/app_copy.dart';
 import '../../../../core/logging/app_logger.dart';
+import '../../../../core/settings/app_settings.dart';
 import '../../../dictionary/application/dictionary_repository.dart';
 import '../../../study/application/study_repository.dart';
 import '../../application/immersion_repository.dart';
@@ -20,6 +22,7 @@ import 'article_reader_page.dart';
 class ImmersionHubPage extends StatefulWidget {
   const ImmersionHubPage({
     super.key,
+    required this.settings,
     required this.repository,
     required this.dictionaryRepository,
     required this.studyRepository,
@@ -28,6 +31,7 @@ class ImmersionHubPage extends StatefulWidget {
     required this.knownWords,
   });
 
+  final AppSettingsData settings;
   final ImmersionRepository repository;
   final DictionaryRepository dictionaryRepository;
   final StudyRepository studyRepository;
@@ -50,16 +54,6 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
     'entertainment': 'Kultur',
     'sports': 'Sport',
   };
-  static const _categories = <_NewsCategoryOption>[
-    _NewsCategoryOption('all', '전체 추천'),
-    _NewsCategoryOption('general', '일반'),
-    _NewsCategoryOption('business', '비즈니스'),
-    _NewsCategoryOption('technology', '테크'),
-    _NewsCategoryOption('science', '과학'),
-    _NewsCategoryOption('health', '헬스'),
-    _NewsCategoryOption('entertainment', '문화'),
-    _NewsCategoryOption('sports', '스포츠'),
-  ];
   static const _suggestedQueries = <String>[
     'Deutschland',
     'Berlin',
@@ -72,6 +66,19 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
 
   late Future<List<NewsArticle>> _articlesFuture;
   String _selectedCategory = _defaultCategoryId;
+
+  AppLanguage get _appLanguage => widget.settings.appLanguage;
+
+  List<_NewsCategoryOption> get _categories => <_NewsCategoryOption>[
+    _NewsCategoryOption('all', _tr(_appLanguage, '전체 추천', 'All picks')),
+    _NewsCategoryOption('general', _tr(_appLanguage, '일반', 'General')),
+    _NewsCategoryOption('business', _tr(_appLanguage, '비즈니스', 'Business')),
+    _NewsCategoryOption('technology', _tr(_appLanguage, '테크', 'Tech')),
+    _NewsCategoryOption('science', _tr(_appLanguage, '과학', 'Science')),
+    _NewsCategoryOption('health', _tr(_appLanguage, '헬스', 'Health')),
+    _NewsCategoryOption('entertainment', _tr(_appLanguage, '문화', 'Culture')),
+    _NewsCategoryOption('sports', _tr(_appLanguage, '스포츠', 'Sports')),
+  ];
 
   @override
   void initState() {
@@ -100,11 +107,12 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(0, 4, 0, 120),
         children: [
-          if (showOverview) ...const [
-            _ImmersionOverviewCard(),
+          if (showOverview) ...[
+            _ImmersionOverviewCard(appLanguage: _appLanguage),
             SizedBox(height: 20),
           ],
           _LiveNewsPanel(
+            appLanguage: _appLanguage,
             searchController: _searchController,
             selectedCategory: _selectedCategory,
             categories: _categories,
@@ -120,8 +128,13 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
           if (featuredResources.isNotEmpty) ...[
             const SizedBox(height: 24),
             _ResourceSection(
-              title: '추가 학습 자료',
-              subtitle: '뉴스 검색만으로 부족할 때 바로 이어서 볼 수 있는 공식 독일어 학습 자료만 남겼습니다.',
+              appLanguage: _appLanguage,
+              title: _tr(_appLanguage, '추가 학습 자료', 'More study resources'),
+              subtitle: _tr(
+                _appLanguage,
+                '뉴스 검색만으로 부족할 때 바로 이어서 볼 수 있는 공식 독일어 학습 자료만 남겼습니다.',
+                'When news alone is not enough, these official German-learning resources let you continue right away.',
+              ),
               resources: featuredResources,
             ),
           ],
@@ -233,6 +246,7 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
       MaterialPageRoute<void>(
         builder: (context) => ArticleReaderPage(
           article: article,
+          settings: widget.settings,
           repository: widget.repository,
           dictionaryRepository: widget.dictionaryRepository,
           studyRepository: widget.studyRepository,
@@ -255,7 +269,9 @@ class _ImmersionHubPageState extends State<ImmersionHubPage> {
 }
 
 class _ImmersionOverviewCard extends StatelessWidget {
-  const _ImmersionOverviewCard();
+  const _ImmersionOverviewCard({required this.appLanguage});
+
+  final AppLanguage appLanguage;
 
   @override
   Widget build(BuildContext context) {
@@ -276,10 +292,16 @@ class _ImmersionOverviewCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _PillLabel(label: 'Real-world German'),
+              _PillLabel(
+                label: _tr(appLanguage, '실전 독일어', 'Real-world German'),
+              ),
               const SizedBox(height: 16),
               Text(
-                '실전 독일어 뉴스만\n바로 읽을 수 있게 정리했습니다.',
+                _tr(
+                  appLanguage,
+                  '실전 독일어 뉴스만\n바로 읽을 수 있게 정리했습니다.',
+                  'German news for real-world reading,\nready when you are.',
+                ),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: layout.isCompact ? 24 : 28,
@@ -290,7 +312,11 @@ class _ImmersionOverviewCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '검색은 버튼을 눌렀을 때만 호출되고, 같은 요청은 캐시를 우선 사용합니다. 기사에 들어가면 불필요한 꼬리 문구를 제거한 뒤 읽기용 본문으로 보여줍니다.',
+                _tr(
+                  appLanguage,
+                  '검색은 버튼을 눌렀을 때만 호출되고, 같은 요청은 캐시를 우선 사용합니다. 기사에 들어가면 불필요한 꼬리 문구를 제거한 뒤 읽기용 본문으로 보여줍니다.',
+                  'Search runs only when you submit it, repeated requests prefer the cache, and article text is cleaned for focused reading.',
+                ),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: layout.bodySize,
@@ -307,6 +333,7 @@ class _ImmersionOverviewCard extends StatelessWidget {
 
 class _LiveNewsPanel extends StatelessWidget {
   const _LiveNewsPanel({
+    required this.appLanguage,
     required this.searchController,
     required this.selectedCategory,
     required this.categories,
@@ -320,6 +347,7 @@ class _LiveNewsPanel extends StatelessWidget {
     required this.onSuggestedQuerySelected,
   });
 
+  final AppLanguage appLanguage;
   final TextEditingController searchController;
   final String selectedCategory;
   final List<_NewsCategoryOption> categories;
@@ -338,25 +366,32 @@ class _LiveNewsPanel extends StatelessWidget {
       builder: (context, constraints) {
         final layout = ResponsiveLayout.fromConstraints(constraints);
         final controls = [
-          const Text(
-            '실시간 독일 뉴스',
-            style: TextStyle(
+          Text(
+            _tr(appLanguage, '실시간 독일 뉴스', 'Live German news'),
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
               color: AppColors.ink,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '같은 요청은 캐시를 먼저 보고, 검색은 버튼을 누르거나 엔터를 칠 때만 실행됩니다.',
-            style: TextStyle(height: 1.55, color: Color(0xFF60707F)),
+          Text(
+            _tr(
+              appLanguage,
+              '같은 요청은 캐시를 먼저 보고, 검색은 버튼을 누르거나 엔터를 칠 때만 실행됩니다.',
+              'Repeated requests check the cache first, and search runs only when you press the button or hit Enter.',
+            ),
+            style: const TextStyle(height: 1.55, color: Color(0xFF60707F)),
           ),
           if (kIsWeb) ...[
             const SizedBox(height: 14),
-            const _InfoBanner(
+            _InfoBanner(
               icon: Icons.shield_outlined,
-              message:
-                  '웹 빌드에서는 NewsAPI 키가 브라우저에 노출될 수 있습니다. 배포용으로는 서버 프록시를 두는 것을 권장합니다.',
+              message: _tr(
+                appLanguage,
+                '웹 빌드에서는 NewsAPI 키가 브라우저에 노출될 수 있습니다. 배포용으로는 서버 프록시를 두는 것을 권장합니다.',
+                'On web builds, the NewsAPI key can be exposed in the browser. A server-side proxy is recommended for production.',
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -370,7 +405,11 @@ class _LiveNewsPanel extends StatelessWidget {
                 onSubmitted: (_) => onSearchSubmitted(),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: '예: Berlin, Wirtschaft, KI, Energie',
+                  hintText: _tr(
+                    appLanguage,
+                    '예: Berlin, Wirtschaft, KI, Energie',
+                    'For example: Berlin, Wirtschaft, KI, Energie',
+                  ),
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -378,12 +417,12 @@ class _LiveNewsPanel extends StatelessWidget {
                         IconButton(
                           onPressed: onClearSearch,
                           icon: const Icon(Icons.close_rounded),
-                          tooltip: '검색어 지우기',
+                          tooltip: _tr(appLanguage, '검색어 지우기', 'Clear search'),
                         ),
                       IconButton(
                         onPressed: onSearchSubmitted,
                         icon: const Icon(Icons.search_rounded),
-                        tooltip: '검색',
+                        tooltip: _tr(appLanguage, '검색', 'Search'),
                       ),
                     ],
                   ),
@@ -422,31 +461,40 @@ class _LiveNewsPanel extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onSearchSubmitted,
                 icon: const Icon(Icons.travel_explore_rounded),
-                label: const Text('검색'),
+                label: Text(_tr(appLanguage, '검색', 'Search')),
               ),
               OutlinedButton.icon(
                 onPressed: onRefreshRequested,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('새로고침'),
+                label: Text(_tr(appLanguage, '새로고침', 'Refresh')),
               ),
             ],
           ),
         ];
 
         final articleSection = !NewsApiConfig.hasKey
-            ? const _EmptyPanel(
-                title: 'News API 키가 비어 있습니다.',
-                message: '로컬 설정 파일이나 dart-define에 키를 넣으면 실시간 뉴스가 표시됩니다.',
+            ? _EmptyPanel(
+                title: _tr(
+                  appLanguage,
+                  'News API 키가 비어 있습니다.',
+                  'The News API key is missing.',
+                ),
+                message: _tr(
+                  appLanguage,
+                  '로컬 설정 파일이나 dart-define에 키를 넣으면 실시간 뉴스가 표시됩니다.',
+                  'Add a key in the local config file or via dart-define to load live news.',
+                ),
               )
             : FutureBuilder<List<NewsArticle>>(
                 future: articlesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const _LoadingPanel();
+                    return _LoadingPanel(appLanguage: appLanguage);
                   }
 
                   if (snapshot.hasError) {
                     return _ErrorPanel(
+                      appLanguage: appLanguage,
                       message: '${snapshot.error}',
                       onRetry: onRefreshRequested,
                     );
@@ -454,9 +502,17 @@ class _LiveNewsPanel extends StatelessWidget {
 
                   final articles = snapshot.data ?? const <NewsArticle>[];
                   if (articles.isEmpty) {
-                    return const _EmptyPanel(
-                      title: '조건에 맞는 기사가 없습니다.',
-                      message: '검색어를 바꾸거나 카테고리를 다시 선택해 보세요.',
+                    return _EmptyPanel(
+                      title: _tr(
+                        appLanguage,
+                        '조건에 맞는 기사가 없습니다.',
+                        'No articles matched this search.',
+                      ),
+                      message: _tr(
+                        appLanguage,
+                        '검색어를 바꾸거나 카테고리를 다시 선택해 보세요.',
+                        'Try another query or choose a different category.',
+                      ),
                     );
                   }
 
@@ -466,6 +522,7 @@ class _LiveNewsPanel extends StatelessWidget {
                           (article) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _LiveNewsCard(
+                              appLanguage: appLanguage,
                               article: article,
                               onOpenStudy: () => onOpenArticleStudy(article),
                             ),
@@ -517,7 +574,9 @@ class _LiveNewsPanel extends StatelessWidget {
 }
 
 class _LoadingPanel extends StatelessWidget {
-  const _LoadingPanel();
+  const _LoadingPanel({required this.appLanguage});
+
+  final AppLanguage appLanguage;
 
   @override
   Widget build(BuildContext context) {
@@ -528,13 +587,17 @@ class _LoadingPanel extends StatelessWidget {
         color: AppColors.background.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(22),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          CircularProgressIndicator(strokeWidth: 3),
-          SizedBox(height: 16),
+          const CircularProgressIndicator(strokeWidth: 3),
+          const SizedBox(height: 16),
           Text(
-            '독일 뉴스 기사를 불러오는 중입니다.',
-            style: TextStyle(
+            _tr(
+              appLanguage,
+              '독일 뉴스 기사를 불러오는 중입니다.',
+              'Loading German news articles.',
+            ),
+            style: const TextStyle(
               color: Color(0xFF60707F),
               fontWeight: FontWeight.w600,
             ),
@@ -546,8 +609,13 @@ class _LoadingPanel extends StatelessWidget {
 }
 
 class _ErrorPanel extends StatelessWidget {
-  const _ErrorPanel({required this.message, required this.onRetry});
+  const _ErrorPanel({
+    required this.appLanguage,
+    required this.message,
+    required this.onRetry,
+  });
 
+  final AppLanguage appLanguage;
   final String message;
   final Future<void> Function() onRetry;
 
@@ -563,8 +631,12 @@ class _ErrorPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '뉴스를 불러오지 못했습니다.',
+          Text(
+            _tr(
+              appLanguage,
+              '뉴스를 불러오지 못했습니다.',
+              'Could not load the news feed.',
+            ),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -580,7 +652,7 @@ class _ErrorPanel extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('다시 시도'),
+            label: Text(_tr(appLanguage, '다시 시도', 'Try again')),
           ),
         ],
       ),
@@ -627,8 +699,13 @@ class _EmptyPanel extends StatelessWidget {
 }
 
 class _LiveNewsCard extends StatelessWidget {
-  const _LiveNewsCard({required this.article, required this.onOpenStudy});
+  const _LiveNewsCard({
+    required this.appLanguage,
+    required this.article,
+    required this.onOpenStudy,
+  });
 
+  final AppLanguage appLanguage;
   final NewsArticle article;
   final Future<void> Function() onOpenStudy;
 
@@ -667,6 +744,7 @@ class _LiveNewsCard extends StatelessWidget {
                       if (hasImage) const SizedBox(width: 14),
                       Expanded(
                         child: _ArticleCardContent(
+                          appLanguage: appLanguage,
                           article: article,
                           compact: true,
                           onOpenStudy: onOpenStudy,
@@ -695,6 +773,7 @@ class _LiveNewsCard extends StatelessWidget {
                     Padding(
                       padding: EdgeInsets.all(layout.cardPadding),
                       child: _ArticleCardContent(
+                        appLanguage: appLanguage,
                         article: article,
                         compact: false,
                         onOpenStudy: onOpenStudy,
@@ -718,20 +797,30 @@ class _LiveNewsCard extends StatelessWidget {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('현재 환경에서 기사 링크를 열지 못했습니다.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _tr(
+            appLanguage,
+            '현재 환경에서 기사 링크를 열지 못했습니다.',
+            'Could not open the article link in this environment.',
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class _ArticleCardContent extends StatelessWidget {
   const _ArticleCardContent({
+    required this.appLanguage,
     required this.article,
     required this.compact,
     required this.onOpenStudy,
     required this.onOpenArticle,
   });
 
+  final AppLanguage appLanguage;
   final NewsArticle article;
   final bool compact;
   final Future<void> Function() onOpenStudy;
@@ -758,7 +847,7 @@ class _ArticleCardContent extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              _publishedLabel(article.publishedAt),
+              _publishedLabel(article.publishedAt, appLanguage),
               style: TextStyle(
                 color: const Color(0xFF60707F),
                 fontWeight: FontWeight.w600,
@@ -798,7 +887,11 @@ class _ArticleCardContent extends StatelessWidget {
             FilledButton.icon(
               onPressed: onOpenStudy,
               icon: const Icon(Icons.menu_book_rounded),
-              label: Text(compact ? '학습' : '읽으며 공부'),
+              label: Text(
+                compact
+                    ? _tr(appLanguage, '학습', 'Study')
+                    : _tr(appLanguage, '읽으며 공부', 'Study while reading'),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.ink,
                 padding: EdgeInsets.symmetric(
@@ -810,7 +903,7 @@ class _ArticleCardContent extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onOpenArticle,
               icon: const Icon(Icons.open_in_new_rounded),
-              label: const Text('원문 열기'),
+              label: Text(_tr(appLanguage, '원문 열기', 'Open source')),
               style: OutlinedButton.styleFrom(
                 padding: EdgeInsets.symmetric(
                   horizontal: compact ? 12 : 16,
@@ -863,11 +956,13 @@ class _InfoBanner extends StatelessWidget {
 
 class _ResourceSection extends StatelessWidget {
   const _ResourceSection({
+    required this.appLanguage,
     required this.title,
     required this.subtitle,
     required this.resources,
   });
 
+  final AppLanguage appLanguage;
   final String title;
   final String subtitle;
   final List<LearningResource> resources;
@@ -894,7 +989,7 @@ class _ResourceSection extends StatelessWidget {
         ...resources.map(
           (resource) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _ResourceCard(resource: resource),
+            child: _ResourceCard(appLanguage: appLanguage, resource: resource),
           ),
         ),
       ],
@@ -903,8 +998,9 @@ class _ResourceSection extends StatelessWidget {
 }
 
 class _ResourceCard extends StatelessWidget {
-  const _ResourceCard({required this.resource});
+  const _ResourceCard({required this.appLanguage, required this.resource});
 
+  final AppLanguage appLanguage;
   final LearningResource resource;
 
   @override
@@ -921,7 +1017,7 @@ class _ResourceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _TypeBadge(type: resource.type),
+              _TypeBadge(appLanguage: appLanguage, type: resource.type),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -964,7 +1060,11 @@ class _ResourceCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '학습 활용법: ${resource.useCase}',
+              _tr(
+                appLanguage,
+                '학습 활용법: ${resource.useCase}',
+                'How to use it: ${resource.useCase}',
+              ),
               style: const TextStyle(
                 height: 1.55,
                 color: AppColors.ink,
@@ -985,7 +1085,7 @@ class _ResourceCard extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => _openResource(context),
             icon: const Icon(Icons.open_in_new_rounded),
-            label: const Text('콘텐츠 열기'),
+            label: Text(_tr(appLanguage, '콘텐츠 열기', 'Open resource')),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.ink,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -1003,15 +1103,24 @@ class _ResourceCard extends StatelessWidget {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('현재 환경에서 링크를 열지 못했습니다.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _tr(
+            appLanguage,
+            '현재 환경에서 링크를 열지 못했습니다.',
+            'Could not open the link in this environment.',
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.type});
+  const _TypeBadge({required this.appLanguage, required this.type});
 
+  final AppLanguage appLanguage;
   final LearningResourceType type;
 
   @override
@@ -1024,15 +1133,15 @@ class _TypeBadge extends StatelessWidget {
       case LearningResourceType.news:
         icon = Icons.newspaper_rounded;
         color = AppColors.coral;
-        label = '뉴스';
+        label = _tr(appLanguage, '뉴스', 'News');
       case LearningResourceType.video:
         icon = Icons.play_circle_rounded;
         color = AppColors.teal;
-        label = '영상';
+        label = _tr(appLanguage, '영상', 'Video');
       case LearningResourceType.grammar:
         icon = Icons.rule_rounded;
         color = AppColors.gold;
-        label = '문법';
+        label = _tr(appLanguage, '문법', 'Grammar');
     }
 
     return Container(
@@ -1111,9 +1220,13 @@ class _NewsCategoryOption {
   final String label;
 }
 
-String _publishedLabel(DateTime? publishedAt) {
+String _tr(AppLanguage appLanguage, String korean, String english) {
+  return appLanguage.copy(korean: korean, english: english);
+}
+
+String _publishedLabel(DateTime? publishedAt, AppLanguage appLanguage) {
   if (publishedAt == null) {
-    return '방금';
+    return _tr(appLanguage, '방금', 'Just now');
   }
 
   final local = publishedAt.toLocal();

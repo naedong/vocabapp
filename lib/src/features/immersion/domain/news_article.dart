@@ -23,7 +23,9 @@ class NewsArticle {
 
   bool get requiresSourceEnrichment {
     final cleanedBody = content?.trim() ?? '';
-    return isContentTruncated || cleanedBody.isEmpty || cleanedBody.length < 420;
+    return isContentTruncated ||
+        cleanedBody.isEmpty ||
+        cleanedBody.length < 420;
   }
 
   String get readingScript {

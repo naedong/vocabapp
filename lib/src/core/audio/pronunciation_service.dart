@@ -12,6 +12,15 @@ abstract class PronunciationService {
   }
 }
 
+class PronunciationPlaybackException implements Exception {
+  const PronunciationPlaybackException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class FlutterTtsPronunciationService implements PronunciationService {
   FlutterTtsPronunciationService({FlutterTts? tts})
     : _tts = tts ?? FlutterTts();
@@ -21,12 +30,16 @@ class FlutterTtsPronunciationService implements PronunciationService {
   Set<String>? _availableLocales;
   bool _isConfigured = false;
   String? _activeLocale;
+  String? _lastPlaybackError;
 
   Future<void> _configureIfNeeded() async {
     if (_isConfigured) {
       return;
     }
 
+    _tts.setErrorHandler((message) {
+      _lastPlaybackError = '$message';
+    });
     await _tts.setSpeechRate(0.42);
     await _tts.setPitch(1.0);
     await _tts.setVolume(1.0);
@@ -43,8 +56,18 @@ class FlutterTtsPronunciationService implements PronunciationService {
 
     await _configureIfNeeded();
     await _setLocale(locale);
+    _lastPlaybackError = null;
     await _tts.stop();
-    await _tts.speak(trimmed);
+    final result = await _tts.speak(trimmed, focus: true);
+    final playbackError = _lastPlaybackError;
+    if (_isPlatformFailure(result) ||
+        (playbackError != null && playbackError.trim().isNotEmpty)) {
+      throw PronunciationPlaybackException(
+        playbackError?.trim().isNotEmpty == true
+            ? playbackError!.trim()
+            : 'Text-to-speech playback could not start.',
+      );
+    }
   }
 
   @override
@@ -59,36 +82,66 @@ class FlutterTtsPronunciationService implements PronunciationService {
   Future<void> dispose() => _tts.stop();
 
   Future<void> _setLocale(String? requestedLocale) async {
-    final resolved = await _resolveLocale(requestedLocale);
+    final candidates = await _resolveLocaleCandidates(requestedLocale);
+    Object? lastError;
 
-    if (_activeLocale == resolved) {
-      return;
-    }
-
-    try {
-      await _tts.setLanguage(resolved);
-      _activeLocale = resolved;
-    } catch (_) {
-      if (_activeLocale == defaultVoiceLocaleCode) {
-        rethrow;
+    for (final locale in candidates) {
+      if (_activeLocale == locale) {
+        return;
       }
 
-      await _tts.setLanguage(defaultVoiceLocaleCode);
-      _activeLocale = defaultVoiceLocaleCode;
+      try {
+        final isAvailable = await _isLanguageAvailable(locale);
+        if (isAvailable == false) {
+          continue;
+        }
+
+        final result = await _tts.setLanguage(locale);
+        if (_isPlatformFailure(result)) {
+          continue;
+        }
+
+        _activeLocale = locale;
+        return;
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    throw PronunciationPlaybackException(
+      'No usable TTS voice was found for ${candidates.first}.'
+      '${lastError == null ? '' : ' $lastError'}',
+    );
   }
 
-  Future<String> _resolveLocale(String? requestedLocale) async {
+  Future<List<String>> _resolveLocaleCandidates(String? requestedLocale) async {
     final desired = normalizeVoiceLocale(requestedLocale);
     final cached = _resolvedLocales[desired];
     if (cached != null) {
-      return cached;
+      return [cached, defaultVoiceLocaleCode]
+          .where((locale) => locale.trim().isNotEmpty)
+          .toSet()
+          .toList(growable: false);
     }
 
     final available = await _loadAvailableLocales();
     final resolved = _pickBestLocale(desired, available);
     _resolvedLocales[desired] = resolved;
-    return resolved;
+    final candidates = <String>[
+      resolved,
+      desired,
+      if (voiceLanguageCode(desired) == 'de') ...[
+        defaultVoiceLocaleCode,
+        'de-AT',
+        'de-CH',
+      ],
+      if (voiceLanguageCode(desired) != 'de') defaultVoiceLocaleCode,
+    ];
+
+    return candidates
+        .where((locale) => locale.trim().isNotEmpty)
+        .toSet()
+        .toList(growable: false);
   }
 
   Future<Set<String>> _loadAvailableLocales() async {
@@ -142,6 +195,46 @@ class FlutterTtsPronunciationService implements PronunciationService {
 
     final fallback = lowerLookup[defaultVoiceLocaleCode.toLowerCase()];
     return fallback ?? available.first;
+  }
+
+  Future<bool?> _isLanguageAvailable(String locale) async {
+    try {
+      final result = await _tts.isLanguageAvailable(locale);
+      if (result is bool) {
+        return result;
+      }
+      if (result is num) {
+        return result >= 0;
+      }
+      final normalized = '$result'.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0') {
+        return false;
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  bool _isPlatformFailure(Object? result) {
+    if (result == null) {
+      return false;
+    }
+    if (result is bool) {
+      return !result;
+    }
+    if (result is num) {
+      return result <= 0;
+    }
+    final normalized = '$result'.trim().toLowerCase();
+    return normalized == 'false' ||
+        normalized == 'error' ||
+        normalized == 'failed' ||
+        normalized == 'failure';
   }
 }
 

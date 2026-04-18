@@ -6,7 +6,9 @@ import '../../../../app/app_theme.dart';
 import '../../../../app/responsive_layout.dart';
 import '../../../../core/audio/pronunciation_service.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/localization/app_copy.dart';
 import '../../../../core/logging/app_logger.dart';
+import '../../../../core/settings/app_settings.dart';
 import '../../../dictionary/application/dictionary_repository.dart';
 import '../../../dictionary/domain/dictionary_lookup.dart';
 import '../../application/immersion_repository.dart';
@@ -20,6 +22,7 @@ class ArticleReaderPage extends StatefulWidget {
   const ArticleReaderPage({
     super.key,
     required this.article,
+    required this.settings,
     required this.repository,
     required this.dictionaryRepository,
     required this.studyRepository,
@@ -28,6 +31,7 @@ class ArticleReaderPage extends StatefulWidget {
   });
 
   final NewsArticle article;
+  final AppSettingsData settings;
   final ImmersionRepository repository;
   final DictionaryRepository dictionaryRepository;
   final StudyRepository studyRepository;
@@ -43,6 +47,8 @@ class _ArticleReaderPageState extends State<ArticleReaderPage> {
   bool _isSourceSyncing = false;
   bool _hasAttemptedAutoSourceSync = false;
   String? _sourceSyncMessage;
+
+  AppLanguage get _appLanguage => widget.settings.appLanguage;
 
   @override
   void initState() {
@@ -64,7 +70,7 @@ class _ArticleReaderPageState extends State<ArticleReaderPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('기사 읽기 학습'),
+        title: Text(_tr(_appLanguage, '기사 읽기 학습', 'Article reading study')),
         backgroundColor: Colors.transparent,
       ),
       body: FutureBuilder<ReadingDocument>(
@@ -78,8 +84,13 @@ class _ArticleReaderPageState extends State<ArticleReaderPage> {
 
           if (snapshot.hasError || !snapshot.hasData) {
             return _ReaderStatePanel(
-              title: '학습 문서를 열지 못했습니다.',
-              message: '${snapshot.error ?? '알 수 없는 오류'}',
+              title: _tr(
+                _appLanguage,
+                '학습 문서를 열지 못했습니다.',
+                'Could not open the reading document.',
+              ),
+              message:
+                  '${snapshot.error ?? _tr(_appLanguage, '알 수 없는 오류', 'Unknown error')}',
             );
           }
 
@@ -93,6 +104,7 @@ class _ArticleReaderPageState extends State<ArticleReaderPage> {
           }
           return _ReaderLoadedView(
             article: widget.article,
+            settings: widget.settings,
             document: document,
             repository: widget.repository,
             dictionaryRepository: widget.dictionaryRepository,
@@ -150,8 +162,16 @@ class _ArticleReaderPageState extends State<ArticleReaderPage> {
     setState(() {
       _isSourceSyncing = true;
       _sourceSyncMessage = automatic
-          ? '원문 본문을 확인하는 중입니다.'
-          : '원문 본문을 다시 확인하는 중입니다.';
+          ? _tr(
+              _appLanguage,
+              '원문 본문을 확인하는 중입니다.',
+              'Checking the original article text.',
+            )
+          : _tr(
+              _appLanguage,
+              '원문 본문을 다시 확인하는 중입니다.',
+              'Checking the original article text again.',
+            );
     });
 
     final result = await widget.repository.enrichDocumentFromSource(
@@ -174,6 +194,7 @@ class _ArticleReaderPageState extends State<ArticleReaderPage> {
 class _ReaderLoadedView extends StatefulWidget {
   const _ReaderLoadedView({
     required this.article,
+    required this.settings,
     required this.document,
     required this.repository,
     required this.dictionaryRepository,
@@ -187,6 +208,7 @@ class _ReaderLoadedView extends StatefulWidget {
   });
 
   final NewsArticle article;
+  final AppSettingsData settings;
   final ReadingDocument document;
   final ImmersionRepository repository;
   final DictionaryRepository dictionaryRepository;
@@ -207,6 +229,8 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
 
   @override
   Widget build(BuildContext context) {
+    final appLanguage = widget.settings.appLanguage;
+
     return StreamBuilder<List<ReadingNote>>(
       stream: widget.repository.watchWordNotes(widget.document.id),
       builder: (context, wordSnapshot) {
@@ -247,6 +271,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                 : ReadingWordSuggester.suggest(
                     token: _selectedWord!.token,
                     knownMatches: selectedKnownMatches,
+                    appLanguage: widget.settings.appLanguage,
                   );
             final selectedRelatedInsights = _selectedWord == null
                 ? const <GrammarInsight>[]
@@ -268,6 +293,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
               ),
               children: [
                 _ArticleHeroCard(
+                  appLanguage: appLanguage,
                   article: widget.article,
                   wordNoteCount: wordNotes.length,
                   grammarNoteCount: grammarNotes.length,
@@ -288,32 +314,59 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                         ? Icons.sync_rounded
                         : Icons.info_outline_rounded,
                     title: widget.isSourceSyncing
-                        ? '원문 본문을 확인하고 있습니다.'
-                        : '본문 상태',
+                        ? _tr(
+                            appLanguage,
+                            '원문 본문을 확인하고 있습니다.',
+                            'Checking the original article text.',
+                          )
+                        : _tr(appLanguage, '본문 상태', 'Article text status'),
                     message:
                         widget.sourceSyncMessage ??
-                        'News API 본문이 짧거나 잘려 있을 수 있어 원문을 한 번 더 확인합니다. 웹에서는 브라우저 제한 때문에 자동으로 전체 본문을 가져오지 못할 수 있습니다.',
+                        _tr(
+                          appLanguage,
+                          'News API 본문이 짧거나 잘려 있을 수 있어 원문을 한 번 더 확인합니다. 웹에서는 브라우저 제한 때문에 자동으로 전체 본문을 가져오지 못할 수 있습니다.',
+                          'The News API text may be short or truncated, so the original article is checked once more. On web builds, browser restrictions can block automatic full-text retrieval.',
+                        ),
                   ),
                 if (widget.article.requiresSourceEnrichment ||
                     widget.sourceSyncMessage != null)
                   const SizedBox(height: 18),
                 _SectionCard(
-                  title: '학습 스크립트',
-                  subtitle: '문단 그대로 읽다가 모르는 단어를 누르면 아래에 뜻과 문법 설명 박스가 열립니다.',
+                  title: _tr(appLanguage, '학습 스크립트', 'Study script'),
+                  subtitle: _tr(
+                    appLanguage,
+                    '문단 그대로 읽다가 모르는 단어를 누르면 아래에 뜻과 문법 설명 박스가 열립니다.',
+                    'Read the paragraphs as they are, then tap an unfamiliar word to open its meaning and grammar notes below.',
+                  ),
                   child: paragraphs.isEmpty
-                      ? const _ReaderStatePanel(
-                          title: '분석할 스크립트가 없습니다.',
-                          message: '스크립트를 붙여 넣으면 단어와 문법을 분석할 수 있습니다.',
+                      ? _ReaderStatePanel(
+                          title: _tr(
+                            appLanguage,
+                            '분석할 스크립트가 없습니다.',
+                            'There is no script to analyze.',
+                          ),
+                          message: _tr(
+                            appLanguage,
+                            '스크립트를 붙여 넣으면 단어와 문법을 분석할 수 있습니다.',
+                            'Paste in a script to analyze vocabulary and grammar.',
+                          ),
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (_selectedWord == null)
-                              const _InlineInfoCard(
+                              _InlineInfoCard(
                                 icon: Icons.touch_app_rounded,
-                                title: '단어를 눌러 보세요.',
-                                message:
-                                    '읽는 흐름을 끊지 않도록 뜻, 문맥, 관련 문법을 같은 위치 근처에서 바로 보여줍니다.',
+                                title: _tr(
+                                  appLanguage,
+                                  '단어를 눌러 보세요.',
+                                  'Tap a word.',
+                                ),
+                                message: _tr(
+                                  appLanguage,
+                                  '읽는 흐름을 끊지 않도록 뜻, 문맥, 관련 문법을 같은 위치 근처에서 바로 보여줍니다.',
+                                  'Meanings, context, and related grammar stay close to the text so reading flow is not interrupted.',
+                                ),
                               ),
                             if (_selectedWord == null)
                               const SizedBox(height: 18),
@@ -336,6 +389,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                               if (_selectedWord?.paragraphIndex == index) ...[
                                 const SizedBox(height: 14),
                                 _WordInsightBox(
+                                  settings: widget.settings,
                                   token: _selectedWord!.token,
                                   contextSnippet: _selectedWord!.contextSnippet,
                                   knownMatches: selectedKnownMatches,
@@ -369,12 +423,24 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                 ),
                 const SizedBox(height: 18),
                 _SectionCard(
-                  title: '문법 인사이트',
-                  subtitle: '자동으로 잡아낸 패턴을 보며 모르는 문법만 따로 체크할 수 있습니다.',
+                  title: _tr(appLanguage, '문법 인사이트', 'Grammar insights'),
+                  subtitle: _tr(
+                    appLanguage,
+                    '자동으로 잡아낸 패턴을 보며 모르는 문법만 따로 체크할 수 있습니다.',
+                    'Review detected patterns and save only the grammar points you want to revisit.',
+                  ),
                   child: grammarInsights.isEmpty
-                      ? const _ReaderStatePanel(
-                          title: '눈에 띄는 패턴이 아직 없습니다.',
-                          message: '스크립트를 더 붙여 넣으면 문법 패턴을 더 많이 잡아낼 수 있습니다.',
+                      ? _ReaderStatePanel(
+                          title: _tr(
+                            appLanguage,
+                            '눈에 띄는 패턴이 아직 없습니다.',
+                            'No clear patterns have been detected yet.',
+                          ),
+                          message: _tr(
+                            appLanguage,
+                            '스크립트를 더 붙여 넣으면 문법 패턴을 더 많이 잡아낼 수 있습니다.',
+                            'Add more script text to detect more grammar patterns.',
+                          ),
                         )
                       : Column(
                           children: grammarInsights.map((insight) {
@@ -384,6 +450,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _GrammarInsightTile(
+                                appLanguage: appLanguage,
                                 insight: insight,
                                 saved: saved,
                                 onToggleSaved: () =>
@@ -396,8 +463,16 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                 const SizedBox(height: 18),
                 if (wordNotes.isNotEmpty) ...[
                   _SectionCard(
-                    title: '저장한 모르는 단어',
-                    subtitle: '읽는 중 체크한 단어를 다시 볼 수 있습니다.',
+                    title: _tr(
+                      appLanguage,
+                      '저장한 모르는 단어',
+                      'Saved unfamiliar words',
+                    ),
+                    subtitle: _tr(
+                      appLanguage,
+                      '읽는 중 체크한 단어를 다시 볼 수 있습니다.',
+                      'Words you marked while reading stay here for quick review.',
+                    ),
                     child: Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -406,7 +481,11 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                         return _SavedNoteChip(
                           label: note.surfaceText,
                           detail: meaning == null || meaning.isEmpty
-                              ? '뜻 메모 없음'
+                              ? _tr(
+                                  appLanguage,
+                                  '뜻 메모 없음',
+                                  'No meaning note yet',
+                                )
                               : meaning,
                         );
                       }).toList(),
@@ -416,13 +495,24 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                 ],
                 if (grammarNotes.isNotEmpty)
                   _SectionCard(
-                    title: '저장한 모르는 문법',
-                    subtitle: '헷갈리는 문법 포인트를 따로 쌓아 둘 수 있습니다.',
+                    title: _tr(
+                      appLanguage,
+                      '저장한 모르는 문법',
+                      'Saved grammar notes',
+                    ),
+                    subtitle: _tr(
+                      appLanguage,
+                      '헷갈리는 문법 포인트를 따로 쌓아 둘 수 있습니다.',
+                      'Keep confusing grammar points in one place for later review.',
+                    ),
                     child: Column(
                       children: grammarNotes.map((note) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: _SavedGrammarTile(note: note),
+                          child: _SavedGrammarTile(
+                            appLanguage: appLanguage,
+                            note: note,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -469,6 +559,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
   }
 
   Future<void> _openScriptEditor(BuildContext context) async {
+    final appLanguage = widget.settings.appLanguage;
     final controller = TextEditingController(text: widget.document.scriptText);
     final shouldSave = await showModalBottomSheet<bool>(
       context: context,
@@ -489,8 +580,8 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '학습 스크립트 편집',
+                  Text(
+                    _tr(appLanguage, '학습 스크립트 편집', 'Edit study script'),
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -498,17 +589,28 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    '기사 본문이나 영상 자막을 붙여 넣으면 단어와 문법 분석 정확도가 좋아집니다.',
-                    style: TextStyle(height: 1.55, color: Color(0xFF60707F)),
+                  Text(
+                    _tr(
+                      appLanguage,
+                      '기사 본문이나 영상 자막을 붙여 넣으면 단어와 문법 분석 정확도가 좋아집니다.',
+                      'Paste in the article body or subtitles to improve vocabulary and grammar analysis.',
+                    ),
+                    style: const TextStyle(
+                      height: 1.55,
+                      color: Color(0xFF60707F),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controller,
                     minLines: 10,
                     maxLines: 16,
-                    decoration: const InputDecoration(
-                      hintText: '뉴스 기사 본문이나 영상 자막을 붙여 넣어 주세요.',
+                    decoration: InputDecoration(
+                      hintText: _tr(
+                        appLanguage,
+                        '뉴스 기사 본문이나 영상 자막을 붙여 넣어 주세요.',
+                        'Paste the article body or subtitles here.',
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -520,7 +622,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
                         backgroundColor: AppColors.ink,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('스크립트 저장'),
+                      child: Text(_tr(appLanguage, '스크립트 저장', 'Save script')),
                     ),
                   ),
                 ],
@@ -544,15 +646,20 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
       return;
     }
     setState(() => _selectedWord = null);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('학습 스크립트를 저장했습니다.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _tr(appLanguage, '학습 스크립트를 저장했습니다.', 'Saved the study script.'),
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleGrammarInsight(
     BuildContext context,
     GrammarInsight insight,
   ) async {
+    final appLanguage = widget.settings.appLanguage;
     final saved = await widget.repository.toggleGrammarNote(
       documentId: widget.document.id,
       surfaceText: insight.title,
@@ -567,8 +674,16 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
       SnackBar(
         content: Text(
           saved
-              ? '${insight.title} 문법 메모를 저장했습니다.'
-              : '${insight.title} 저장을 해제했습니다.',
+              ? _tr(
+                  appLanguage,
+                  '${insight.title} 문법 메모를 저장했습니다.',
+                  'Saved a grammar note for ${insight.title}.',
+                )
+              : _tr(
+                  appLanguage,
+                  '${insight.title} 저장을 해제했습니다.',
+                  'Removed the saved note for ${insight.title}.',
+                ),
         ),
       ),
     );
@@ -579,6 +694,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
     required String meaningDraft,
     required List<VocabWord> knownMatches,
   }) async {
+    final appLanguage = widget.settings.appLanguage;
     final selection = _selectedWord;
     if (selection == null) {
       return;
@@ -606,8 +722,16 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
       SnackBar(
         content: Text(
           saved
-              ? '${selection.token.surface}를 모르는 단어로 저장했습니다.'
-              : '${selection.token.surface} 저장을 해제했습니다.',
+              ? _tr(
+                  appLanguage,
+                  '${selection.token.surface}를 모르는 단어로 저장했습니다.',
+                  'Saved ${selection.token.surface} as an unfamiliar word.',
+                )
+              : _tr(
+                  appLanguage,
+                  '${selection.token.surface} 저장을 해제했습니다.',
+                  'Removed the saved note for ${selection.token.surface}.',
+                ),
         ),
       ),
     );
@@ -639,10 +763,23 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
           dictionaryRepository: widget.dictionaryRepository,
           repository: widget.studyRepository,
           pronunciationService: widget.pronunciationService,
+          settings: widget.settings,
           initialDraft: initialDraft,
-          title: '실전 단어를 학습 카드로 저장',
-          subtitle: '자동 제안된 뜻과 문장을 먼저 넣어 두었습니다. 필요한 부분만 수정해서 저장하면 됩니다.',
-          submitLabel: '학습 카드 저장',
+          title: _tr(
+            widget.settings.appLanguage,
+            '실전 단어를 학습 카드로 저장',
+            'Save this reading word as a study card',
+          ),
+          subtitle: _tr(
+            widget.settings.appLanguage,
+            '자동 제안된 뜻과 문장을 먼저 넣어 두었습니다. 필요한 부분만 수정해서 저장하면 됩니다.',
+            'Suggested meanings and example text are prefilled, so you can change only what you want before saving.',
+          ),
+          submitLabel: _tr(
+            widget.settings.appLanguage,
+            '학습 카드 저장',
+            'Save study card',
+          ),
         ),
       ),
     );
@@ -728,6 +865,7 @@ class _ReaderLoadedViewState extends State<_ReaderLoadedView> {
 
 class _ArticleHeroCard extends StatelessWidget {
   const _ArticleHeroCard({
+    required this.appLanguage,
     required this.article,
     required this.wordNoteCount,
     required this.grammarNoteCount,
@@ -738,6 +876,7 @@ class _ArticleHeroCard extends StatelessWidget {
     required this.sourceSyncMessage,
   });
 
+  final AppLanguage appLanguage;
   final NewsArticle article;
   final int wordNoteCount;
   final int grammarNoteCount;
@@ -798,12 +937,24 @@ class _ArticleHeroCard extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  _MetaPill(label: '단어 체크 $wordNoteCount개'),
-                  _MetaPill(label: '문법 체크 $grammarNoteCount개'),
+                  _MetaPill(
+                    label: _tr(
+                      appLanguage,
+                      '단어 체크 $wordNoteCount개',
+                      'Word notes $wordNoteCount',
+                    ),
+                  ),
+                  _MetaPill(
+                    label: _tr(
+                      appLanguage,
+                      '문법 체크 $grammarNoteCount개',
+                      'Grammar notes $grammarNoteCount',
+                    ),
+                  ),
                   _MetaPill(
                     label: article.requiresSourceEnrichment
-                        ? '요약 본문'
-                        : '정리된 본문',
+                        ? _tr(appLanguage, '요약 본문', 'Short source text')
+                        : _tr(appLanguage, '정리된 본문', 'Prepared text'),
                   ),
                 ],
               ),
@@ -826,7 +977,7 @@ class _ArticleHeroCard extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onEditScript,
                     icon: const Icon(Icons.edit_note_rounded),
-                    label: const Text('스크립트 수정'),
+                    label: Text(_tr(appLanguage, '스크립트 수정', 'Edit script')),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.ink,
                       padding: EdgeInsets.symmetric(
@@ -838,7 +989,7 @@ class _ArticleHeroCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onSpeakTitle,
                     icon: const Icon(Icons.volume_up_rounded),
-                    label: const Text('제목 듣기'),
+                    label: Text(_tr(appLanguage, '제목 듣기', 'Listen to title')),
                   ),
                   if (article.requiresSourceEnrichment ||
                       sourceSyncMessage != null)
@@ -849,12 +1000,24 @@ class _ArticleHeroCard extends StatelessWidget {
                             ? Icons.sync_rounded
                             : Icons.article_outlined,
                       ),
-                      label: Text(isSourceSyncing ? '본문 확인 중' : '원문 본문 확인'),
+                      label: Text(
+                        isSourceSyncing
+                            ? _tr(
+                                appLanguage,
+                                '본문 확인 중',
+                                'Checking source text',
+                              )
+                            : _tr(
+                                appLanguage,
+                                '원문 본문 확인',
+                                'Check original text',
+                              ),
+                      ),
                     ),
                   OutlinedButton.icon(
                     onPressed: () => _openOriginalArticle(context, article.url),
                     icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('원문 열기'),
+                    label: Text(_tr(appLanguage, '원문 열기', 'Open source')),
                   ),
                 ],
               ),
@@ -875,9 +1038,17 @@ class _ArticleHeroCard extends StatelessWidget {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('현재 환경에서 기사 링크를 열지 못했습니다.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _tr(
+            appLanguage,
+            '현재 환경에서 기사 링크를 열지 못했습니다.',
+            'Could not open the article link in this environment.',
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1039,6 +1210,7 @@ class _InteractiveParagraphState extends State<_InteractiveParagraph> {
 
 class _WordInsightBox extends StatefulWidget {
   const _WordInsightBox({
+    required this.settings,
     required this.token,
     required this.contextSnippet,
     required this.knownMatches,
@@ -1052,6 +1224,7 @@ class _WordInsightBox extends StatefulWidget {
     required this.onAddToStudy,
   });
 
+  final AppSettingsData settings;
   final ScriptToken token;
   final String contextSnippet;
   final List<VocabWord> knownMatches;
@@ -1078,6 +1251,19 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
   bool _userEditedMeaning = false;
   bool _suppressMeaningListener = false;
   String _lastAppliedMeaning = '';
+
+  AppLanguage get _appLanguage => widget.settings.appLanguage;
+
+  String _t(String korean, String english) {
+    return _tr(_appLanguage, korean, english);
+  }
+
+  String _meaningPair(String meaningKo, String meaningEn) {
+    return _appLanguage.copy(
+      korean: '$meaningKo  |  $meaningEn',
+      english: '$meaningEn  |  $meaningKo',
+    );
+  }
 
   @override
   void initState() {
@@ -1159,8 +1345,14 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
               ),
               Text(
                 widget.savedNote == null
-                    ? '현재 문단에서 선택한 단어입니다.'
-                    : '이미 모르는 단어 메모에 저장되어 있습니다.',
+                    ? _t(
+                        '현재 문단에서 선택한 단어입니다.',
+                        'This word is selected from the current paragraph.',
+                      )
+                    : _t(
+                        '이미 모르는 단어 메모에 저장되어 있습니다.',
+                        'This word is already saved in your unfamiliar-word notes.',
+                      ),
                 style: TextStyle(
                   color: const Color(0xFF60707F),
                   fontWeight: FontWeight.w600,
@@ -1170,8 +1362,8 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
               ),
               const SizedBox(height: 14),
               if (widget.knownMatches.isNotEmpty) ...[
-                const Text(
-                  '현재 단어장에 있는 뜻',
+                Text(
+                  _t('현재 단어장에 있는 뜻', 'Meaning already in your deck'),
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
@@ -1189,7 +1381,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
-                        '${word.german}  |  ${word.meaningKo} / ${word.meaningEn}',
+                        '${word.german}  |  ${_meaningPair(word.meaningKo, word.meaningEn)}',
                         style: const TextStyle(
                           height: 1.5,
                           color: AppColors.ink,
@@ -1201,9 +1393,12 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                 ),
                 const SizedBox(height: 8),
               ] else ...[
-                const Text(
-                  '아직 단어장에 등록된 뜻이 없습니다.',
-                  style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
+                Text(
+                  _t(
+                    '아직 단어장에 등록된 뜻이 없습니다.',
+                    'There is no saved meaning for this word yet.',
+                  ),
+                  style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -1213,9 +1408,12 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                 controller: _meaningController,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: '뜻 수정 / 메모',
-                  hintText: '자동 제안 뜻을 바꾸거나 기억 포인트를 적어 둘 수 있어요.',
+                decoration: InputDecoration(
+                  labelText: _t('뜻 수정 / 메모', 'Meaning / note'),
+                  hintText: _t(
+                    '자동 제안 뜻을 바꾸거나 기억 포인트를 적어 둘 수 있어요.',
+                    'Adjust the suggested meaning or add a short memory note.',
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1227,7 +1425,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
-                  '문맥: ${widget.contextSnippet}',
+                  '${_t('문맥', 'Context')}: ${widget.contextSnippet}',
                   style: const TextStyle(
                     height: 1.55,
                     color: Color(0xFF5F6F7C),
@@ -1235,8 +1433,8 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                '이 단어와 관련된 문법 설명',
+              Text(
+                _t('이 단어와 관련된 문법 설명', 'Grammar notes for this word'),
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   color: AppColors.ink,
@@ -1265,9 +1463,12 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
               ),
               const SizedBox(height: 10),
               if (widget.relatedInsights.isEmpty)
-                const Text(
-                  '이 문장 주변에서 대표 문법 패턴은 아직 감지되지 않았습니다.',
-                  style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
+                Text(
+                  _t(
+                    '이 문장 주변에서 대표 문법 패턴은 아직 감지되지 않았습니다.',
+                    'No clear grammar pattern has been detected around this sentence yet.',
+                  ),
+                  style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
                 )
               else
                 Column(
@@ -1316,7 +1517,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                       locale: 'de-DE',
                     ),
                     icon: const Icon(Icons.volume_up_rounded),
-                    label: const Text('단어 듣기'),
+                    label: Text(_t('단어 듣기', 'Listen to word')),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => widget.pronunciationService.speak(
@@ -1324,7 +1525,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                       locale: 'de-DE',
                     ),
                     icon: const Icon(Icons.record_voice_over_rounded),
-                    label: const Text('문장 듣기'),
+                    label: Text(_t('문장 듣기', 'Listen to sentence')),
                   ),
                   FilledButton.icon(
                     onPressed: _isSaving ? null : _toggleSaved,
@@ -1334,7 +1535,9 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                           : Icons.bookmark_remove_rounded,
                     ),
                     label: Text(
-                      widget.savedNote == null ? '모르는 단어 저장' : '저장 해제',
+                      widget.savedNote == null
+                          ? _t('모르는 단어 저장', 'Save unfamiliar word')
+                          : _t('저장 해제', 'Remove saved note'),
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.ink,
@@ -1343,7 +1546,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                   FilledButton.tonalIcon(
                     onPressed: _isSaving ? null : _addToStudy,
                     icon: const Icon(Icons.school_rounded),
-                    label: const Text('학습 카드로 저장'),
+                    label: Text(_t('학습 카드로 저장', 'Save as study card')),
                   ),
                 ],
               ),
@@ -1363,18 +1566,21 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
           color: AppColors.teal.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            SizedBox(
+            const SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
-                '실시간 사전 결과를 가져오는 중입니다.',
-                style: TextStyle(height: 1.5, color: AppColors.ink),
+                _t(
+                  '실시간 사전 결과를 가져오는 중입니다.',
+                  'Loading the live dictionary result.',
+                ),
+                style: const TextStyle(height: 1.5, color: AppColors.ink),
               ),
             ),
           ],
@@ -1395,12 +1601,15 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _dictionaryPanelHeader(
-              title: '실시간 사전 추천',
+              title: _t('실시간 사전 추천', 'Live dictionary suggestion'),
               trailing: dictionarySuggestion.sourceLabel,
             ),
             const SizedBox(height: 8),
             Text(
-              '${dictionarySuggestion.meaningKo}  |  ${dictionarySuggestion.meaningEn}',
+              _meaningPair(
+                dictionarySuggestion.meaningKo,
+                dictionarySuggestion.meaningEn,
+              ),
               style: const TextStyle(
                 height: 1.5,
                 color: AppColors.ink,
@@ -1423,7 +1632,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
             if (dictionarySuggestion.forms.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                '활용형: ${dictionarySuggestion.forms.take(4).join(', ')}',
+                '${_t('활용형', 'Forms')}: ${dictionarySuggestion.forms.take(4).join(', ')}',
                 style: const TextStyle(
                   height: 1.5,
                   color: Color(0xFF60707F),
@@ -1434,7 +1643,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
             if (dictionarySuggestion.synonyms.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                '유의어: ${dictionarySuggestion.synonyms.take(5).join(', ')}',
+                '${_t('유의어', 'Synonyms')}: ${dictionarySuggestion.synonyms.take(5).join(', ')}',
                 style: const TextStyle(
                   height: 1.5,
                   color: Color(0xFF60707F),
@@ -1445,8 +1654,14 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
             const SizedBox(height: 8),
             Text(
               dictionarySuggestion.usedDefinitionFallbackForKo
-                  ? '한국어 번역이 비어 있어 영어 정의를 임시로 함께 보여줍니다.'
-                  : '한국어 번역까지 포함된 사전 결과를 기본값으로 사용합니다.',
+                  ? _t(
+                      '한국어 번역이 비어 있어 영어 정의를 임시로 함께 보여줍니다.',
+                      'The Korean translation was missing, so the English gloss is shown as a temporary fallback.',
+                    )
+                  : _t(
+                      '한국어 번역까지 포함된 사전 결과를 기본값으로 사용합니다.',
+                      'A dictionary result with Korean meaning is available, so it is used as the default.',
+                    ),
               style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
             ),
             const SizedBox(height: 8),
@@ -1457,15 +1672,21 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
                 OutlinedButton.icon(
                   onPressed: () => _openUrl(
                     dictionarySuggestion.sourceUrl,
-                    errorMessage: '원문 사전 페이지를 열지 못했습니다.',
+                    errorMessage: _t(
+                      '원문 사전 페이지를 열지 못했습니다.',
+                      'Could not open the source dictionary page.',
+                    ),
                   ),
                   icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('원문 보기'),
+                  label: Text(_t('원문 보기', 'Open source')),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _openUrl(
                     dictionarySuggestion.licenseUrl,
-                    errorMessage: '라이선스 페이지를 열지 못했습니다.',
+                    errorMessage: _t(
+                      '라이선스 페이지를 열지 못했습니다.',
+                      'Could not open the license page.',
+                    ),
                   ),
                   icon: const Icon(Icons.verified_outlined),
                   label: Text(dictionarySuggestion.licenseName),
@@ -1490,15 +1711,17 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _dictionaryPanelHeader(
-            title: _dictionaryNotFound ? '실시간 사전' : '자동 제안',
+            title: _dictionaryNotFound
+                ? _t('실시간 사전', 'Live dictionary')
+                : _t('자동 제안', 'Auto suggestion'),
             trailing: _dictionaryNotFound
-                ? '사전 미등록'
+                ? _t('사전 미등록', 'Not found')
                 : widget.suggestion.sourceLabel,
           ),
           const SizedBox(height: 8),
           if (_dictionaryNotFound) ...[
-            const Text(
-              '여기 사전에 없습니다.',
+            Text(
+              _t('여기 사전에 없습니다.', 'This word is not in the dictionary here.'),
               style: TextStyle(
                 height: 1.5,
                 color: AppColors.ink,
@@ -1508,8 +1731,14 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
             const SizedBox(height: 6),
             Text(
               widget.suggestion.isApproximate
-                  ? '아래 뜻은 형태 기반 자동 추정이므로 저장 전에 한 번 확인해 주세요.'
-                  : '아래 뜻은 현재 단어장이나 기본 제안을 바탕으로 보여드리고 있습니다.',
+                  ? _t(
+                      '아래 뜻은 형태 기반 자동 추정이므로 저장 전에 한 번 확인해 주세요.',
+                      'The meaning below is a morphology-based guess, so please verify it before saving.',
+                    )
+                  : _t(
+                      '아래 뜻은 현재 단어장이나 기본 제안을 바탕으로 보여드리고 있습니다.',
+                      'The meaning below comes from your deck or a built-in fallback suggestion.',
+                    ),
               style: const TextStyle(
                 height: 1.5,
                 color: Color(0xFF60707F),
@@ -1519,7 +1748,10 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
             const SizedBox(height: 10),
           ],
           Text(
-            '${widget.suggestion.meaningKo}  |  ${widget.suggestion.meaningEn}',
+            _meaningPair(
+              widget.suggestion.meaningKo,
+              widget.suggestion.meaningEn,
+            ),
             style: const TextStyle(
               height: 1.5,
               color: AppColors.ink,
@@ -1528,7 +1760,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
           ),
           const SizedBox(height: 6),
           Text(
-            '품사: ${widget.suggestion.partOfSpeech}${widget.suggestion.article == null || widget.suggestion.article!.trim().isEmpty ? '' : '  |  관사: ${widget.suggestion.article}'}',
+            '${_t('품사', 'Part of speech')}: ${widget.suggestion.partOfSpeech}${widget.suggestion.article == null || widget.suggestion.article!.trim().isEmpty ? '' : '  |  ${_t('관사', 'Article')}: ${widget.suggestion.article}'}',
             style: const TextStyle(
               height: 1.5,
               color: Color(0xFF60707F),
@@ -1544,9 +1776,12 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
           ],
           if (widget.suggestion.isApproximate) ...[
             const SizedBox(height: 6),
-            const Text(
-              '이 제안은 형태 기반 자동 추정입니다. 저장 전에 뜻을 한 번 수정해 주세요.',
-              style: TextStyle(height: 1.5, color: Color(0xFF60707F)),
+            Text(
+              _t(
+                '이 제안은 형태 기반 자동 추정입니다. 저장 전에 뜻을 한 번 수정해 주세요.',
+                'This suggestion is a morphology-based guess. Please revise the meaning before saving.',
+              ),
+              style: const TextStyle(height: 1.5, color: Color(0xFF60707F)),
             ),
           ],
         ],
@@ -1703,6 +1938,7 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
       final suggestion = await widget.dictionaryRepository.suggestGermanWord(
         lookupWord,
         contextSnippet: widget.contextSnippet,
+        preference: widget.settings.aiProviderPreference,
       );
 
       if (!mounted || widget.token.surface != lookupWord) {
@@ -1712,7 +1948,10 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
       if (suggestion == null) {
         setState(() {
           _dictionarySuggestion = null;
-          _dictionaryError = '여기 사전에 없습니다.';
+          _dictionaryError = _t(
+            '여기 사전에 없습니다.',
+            'This word is not in the dictionary here.',
+          );
           _dictionaryNotFound = true;
           _isDictionaryLoading = false;
         });
@@ -1742,7 +1981,10 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
       setState(() {
         _dictionarySuggestion = null;
         _dictionaryNotFound = false;
-        _dictionaryError = '실시간 사전 연결에 실패해 기존 제안을 유지합니다.';
+        _dictionaryError = _t(
+          '실시간 사전 연결에 실패해 기존 제안을 유지합니다.',
+          'Live dictionary lookup failed, so the existing suggestion is kept.',
+        );
         _isDictionaryLoading = false;
       });
     }
@@ -1787,11 +2029,13 @@ class _WordInsightBoxState extends State<_WordInsightBox> {
 
 class _GrammarInsightTile extends StatelessWidget {
   const _GrammarInsightTile({
+    required this.appLanguage,
     required this.insight,
     required this.saved,
     required this.onToggleSaved,
   });
 
+  final AppLanguage appLanguage;
   final GrammarInsight insight;
   final bool saved;
   final Future<void> Function() onToggleSaved;
@@ -1822,7 +2066,11 @@ class _GrammarInsightTile extends StatelessWidget {
               ),
               FilledButton.tonal(
                 onPressed: onToggleSaved,
-                child: Text(saved ? '저장 해제' : '문법 저장'),
+                child: Text(
+                  saved
+                      ? _tr(appLanguage, '저장 해제', 'Remove saved note')
+                      : _tr(appLanguage, '문법 저장', 'Save grammar note'),
+                ),
               ),
             ],
           ),
@@ -1833,7 +2081,7 @@ class _GrammarInsightTile extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '예문 조각: ${insight.snippet}',
+            '${_tr(appLanguage, '예문 조각', 'Snippet')}: ${insight.snippet}',
             style: const TextStyle(
               height: 1.55,
               color: AppColors.ink,
@@ -1882,8 +2130,9 @@ class _SavedNoteChip extends StatelessWidget {
 }
 
 class _SavedGrammarTile extends StatelessWidget {
-  const _SavedGrammarTile({required this.note});
+  const _SavedGrammarTile({required this.appLanguage, required this.note});
 
+  final AppLanguage appLanguage;
   final ReadingNote note;
 
   @override
@@ -1918,7 +2167,7 @@ class _SavedGrammarTile extends StatelessWidget {
               note.contextSnippet!.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              '예문 조각: ${note.contextSnippet!}',
+              '${_tr(appLanguage, '예문 조각', 'Snippet')}: ${note.contextSnippet!}',
               style: const TextStyle(
                 height: 1.55,
                 color: AppColors.ink,
@@ -2053,6 +2302,10 @@ class _SelectedWord {
   final int paragraphIndex;
   final ScriptToken token;
   final String contextSnippet;
+}
+
+String _tr(AppLanguage appLanguage, String korean, String english) {
+  return appLanguage.copy(korean: korean, english: english);
 }
 
 bool _needsLeadingSpace(ScriptToken? previous, ScriptToken current) {

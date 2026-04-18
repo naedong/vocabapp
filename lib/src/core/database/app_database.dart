@@ -9,6 +9,7 @@ part 'app_database.g.dart';
 
 class VocabWords extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get languageCode => text().withDefault(const Constant('de'))();
   TextColumn get german => text()();
   TextColumn get article => text().nullable()();
   TextColumn get partOfSpeech =>
@@ -87,6 +88,34 @@ class NewsCacheEntries extends Table {
   ];
 }
 
+class AppPreferencesEntries extends Table {
+  IntColumn get id => integer().withDefault(const Constant(1))();
+  TextColumn get appLanguageCode => text().withDefault(const Constant('en'))();
+  TextColumn get studyLanguageCode =>
+      text().withDefault(const Constant('de'))();
+  TextColumn get aiProviderCode => text().withDefault(const Constant('auto'))();
+  IntColumn get updatedAt =>
+      integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
+
+  @override
+  Set<Column<Object>>? get primaryKey => {id};
+}
+
+class PracticeExamEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get languageCode => text().withDefault(const Constant('de'))();
+  TextColumn get sourceKey => text()();
+  TextColumn get payloadJson => text()();
+  IntColumn get createdAt =>
+      integer().clientDefault(() => DateTime.now().millisecondsSinceEpoch)();
+  IntColumn get updatedAt => integer().nullable()();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {languageCode, sourceKey},
+  ];
+}
+
 @DriftDatabase(
   tables: [
     VocabWords,
@@ -94,13 +123,15 @@ class NewsCacheEntries extends Table {
     ReadingDocuments,
     ReadingNotes,
     NewsCacheEntries,
+    AppPreferencesEntries,
+    PracticeExamEntries,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -121,6 +152,13 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(vocabWords, vocabWords.isDailyRecommendation);
         await m.addColumn(vocabWords, vocabWords.dailyRecommendationDateKey);
       }
+      if (from < 6) {
+        await m.addColumn(vocabWords, vocabWords.languageCode);
+        await m.createTable(appPreferencesEntries);
+      }
+      if (from < 7) {
+        await m.createTable(practiceExamEntries);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -131,12 +169,27 @@ class AppDatabase extends _$AppDatabase {
           "WHERE tts_locale IS NULL OR tts_locale = ''",
         );
       }
+      if (details.versionNow >= 6) {
+        await customStatement(
+          "UPDATE vocab_words SET language_code = 'de' "
+          "WHERE language_code IS NULL OR language_code = ''",
+        );
+        await customStatement(
+          "UPDATE vocab_words SET tts_locale = '$defaultVoiceLocaleCode' "
+          "WHERE language_code = 'de' AND "
+          "(tts_locale IS NULL OR tts_locale = '' OR "
+          "lower(substr(replace(tts_locale, '_', '-'), 1, 2)) <> 'de')",
+        );
+      }
     },
   );
 
   Future<void> initialize() async {
     await _ensureImmersionTables();
     await _ensureNewsCacheTable();
+    await _ensureAppPreferencesTable();
+    await _ensurePracticeExamEntriesTable();
+    await _ensureAppPreferencesRow();
     await ensureSeedData();
   }
 
@@ -164,7 +217,27 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<AppPreferencesEntry> watchAppPreferences() {
+    return (select(appPreferencesEntries)
+          ..where((table) => table.id.equals(1))
+          ..limit(1))
+        .watchSingle();
+  }
+
+  Stream<List<PracticeExamEntry>> watchPracticeExamEntries(
+    String languageCode,
+  ) {
+    return (select(practiceExamEntries)
+          ..where((table) => table.languageCode.equals(languageCode))
+          ..orderBy([
+            (table) => OrderingTerm.desc(table.updatedAt),
+            (table) => OrderingTerm.desc(table.createdAt),
+          ]))
+        .watch();
+  }
+
   Future<void> addWord({
+    required String languageCode,
     required String german,
     required String meaningEn,
     required String meaningKo,
@@ -180,12 +253,20 @@ class AppDatabase extends _$AppDatabase {
     DateTime? dailyRecommendationDate,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final preparedLanguageCode = languageCode.trim().isEmpty
+        ? 'de'
+        : languageCode.trim().toLowerCase();
+    final preparedTtsLocale = voiceLocaleForLanguageCode(
+      languageCode: preparedLanguageCode,
+      requestedLocale: ttsLocale,
+    );
     final recommendationDate = isDailyRecommendation
         ? (dailyRecommendationDate ?? DateTime.now())
         : null;
 
     await into(vocabWords).insert(
       VocabWordsCompanion.insert(
+        languageCode: Value(preparedLanguageCode),
         german: german.trim(),
         article: _optionalText(article),
         partOfSpeech: partOfSpeech.trim().isEmpty
@@ -194,7 +275,7 @@ class AppDatabase extends _$AppDatabase {
         meaningEn: meaningEn.trim(),
         meaningKo: meaningKo.trim(),
         pronunciation: pronunciation.trim(),
-        ttsLocale: Value(voiceLocaleFromCode(ttsLocale).code),
+        ttsLocale: Value(preparedTtsLocale),
         exampleSentence: exampleSentence.trim().isEmpty
             ? '${german.trim()} ist ein wichtiges Wort.'
             : exampleSentence.trim(),
@@ -223,6 +304,37 @@ class AppDatabase extends _$AppDatabase {
     return update(
       vocabWords,
     ).replace(word.copyWith(isBookmarked: !word.isBookmarked));
+  }
+
+  Future<void> updateWordTtsLocale(VocabWord word, String ttsLocale) {
+    return (update(
+      vocabWords,
+    )..where((table) => table.id.equals(word.id))).write(
+      VocabWordsCompanion(
+        ttsLocale: Value(
+          voiceLocaleForLanguageCode(
+            languageCode: word.languageCode,
+            requestedLocale: ttsLocale,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> updateAppPreferences({
+    required String appLanguageCode,
+    required String studyLanguageCode,
+    required String aiProviderCode,
+  }) async {
+    await into(appPreferencesEntries).insertOnConflictUpdate(
+      AppPreferencesEntriesCompanion.insert(
+        id: const Value(1),
+        appLanguageCode: Value(appLanguageCode),
+        studyLanguageCode: Value(studyLanguageCode),
+        aiProviderCode: Value(aiProviderCode),
+        updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+    );
   }
 
   Future<void> reviewWord(VocabWord word, {required bool remembered}) async {
@@ -416,6 +528,51 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<bool> upsertPracticeExamEntry({
+    required String languageCode,
+    required String sourceKey,
+    required String payloadJson,
+  }) async {
+    final existing =
+        await (select(practiceExamEntries)..where(
+              (table) =>
+                  table.languageCode.equals(languageCode) &
+                  table.sourceKey.equals(sourceKey),
+            ))
+            .getSingleOrNull();
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (existing == null) {
+      await into(practiceExamEntries).insert(
+        PracticeExamEntriesCompanion.insert(
+          languageCode: Value(
+            languageCode.trim().isEmpty ? 'de' : languageCode,
+          ),
+          sourceKey: sourceKey,
+          payloadJson: payloadJson,
+          createdAt: Value(now),
+        ),
+      );
+      return true;
+    }
+
+    await (update(
+      practiceExamEntries,
+    )..where((table) => table.id.equals(existing.id))).write(
+      PracticeExamEntriesCompanion(
+        payloadJson: Value(payloadJson),
+        updatedAt: Value(now),
+      ),
+    );
+    return false;
+  }
+
+  Future<void> deletePracticeExamEntry(int id) {
+    return (delete(
+      practiceExamEntries,
+    )..where((table) => table.id.equals(id))).go();
+  }
+
   Future<void> _ensureImmersionTables() async {
     await customStatement('''
 CREATE TABLE IF NOT EXISTS reading_documents (
@@ -457,6 +614,51 @@ CREATE TABLE IF NOT EXISTS news_cache_entries (
 ''');
   }
 
+  Future<void> _ensureAppPreferencesTable() async {
+    await customStatement('''
+CREATE TABLE IF NOT EXISTS app_preferences_entries (
+  id INTEGER NOT NULL PRIMARY KEY,
+  app_language_code TEXT NOT NULL DEFAULT 'en',
+  study_language_code TEXT NOT NULL DEFAULT 'de',
+  ai_provider_code TEXT NOT NULL DEFAULT 'auto',
+  updated_at INTEGER NOT NULL
+)
+''');
+  }
+
+  Future<void> _ensurePracticeExamEntriesTable() async {
+    await customStatement('''
+CREATE TABLE IF NOT EXISTS practice_exam_entries (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  language_code TEXT NOT NULL DEFAULT 'de',
+  source_key TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NULL,
+  UNIQUE(language_code, source_key)
+)
+''');
+  }
+
+  Future<void> _ensureAppPreferencesRow() async {
+    final existing = await (select(
+      appPreferencesEntries,
+    )..where((table) => table.id.equals(1))).getSingleOrNull();
+    if (existing != null) {
+      return;
+    }
+
+    await into(appPreferencesEntries).insert(
+      AppPreferencesEntriesCompanion.insert(
+        id: const Value(1),
+        appLanguageCode: const Value('en'),
+        studyLanguageCode: const Value('de'),
+        aiProviderCode: const Value('auto'),
+        updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+    );
+  }
+
   Future<void> ensureSeedData() async {
     final hasData = await (select(vocabWords)..limit(1)).getSingleOrNull();
     if (hasData != null) {
@@ -472,6 +674,7 @@ CREATE TABLE IF NOT EXISTS news_cache_entries (
       final nextReviewAt = now.add(Duration(hours: seed.nextReviewInHours));
 
       return VocabWordsCompanion.insert(
+        languageCode: const Value('de'),
         german: seed.german,
         article: _optionalText(seed.article),
         partOfSpeech: Value(seed.partOfSpeech),

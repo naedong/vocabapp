@@ -22,6 +22,18 @@ class $VocabWordsTable extends VocabWords
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
+  @override
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('de'),
+  );
   static const VerificationMeta _germanMeta = const VerificationMeta('german');
   @override
   late final GeneratedColumn<String> german = GeneratedColumn<String>(
@@ -256,6 +268,7 @@ class $VocabWordsTable extends VocabWords
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    languageCode,
     german,
     article,
     partOfSpeech,
@@ -291,6 +304,15 @@ class $VocabWordsTable extends VocabWords
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
     }
     if (data.containsKey('german')) {
       context.handle(
@@ -470,6 +492,10 @@ class $VocabWordsTable extends VocabWords
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
       german: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}german'],
@@ -561,6 +587,7 @@ class $VocabWordsTable extends VocabWords
 
 class VocabWord extends DataClass implements Insertable<VocabWord> {
   final int id;
+  final String languageCode;
   final String german;
   final String? article;
   final String partOfSpeech;
@@ -583,6 +610,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   final int createdAt;
   const VocabWord({
     required this.id,
+    required this.languageCode,
     required this.german,
     this.article,
     required this.partOfSpeech,
@@ -608,6 +636,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['language_code'] = Variable<String>(languageCode);
     map['german'] = Variable<String>(german);
     if (!nullToAbsent || article != null) {
       map['article'] = Variable<String>(article);
@@ -646,6 +675,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   VocabWordsCompanion toCompanion(bool nullToAbsent) {
     return VocabWordsCompanion(
       id: Value(id),
+      languageCode: Value(languageCode),
       german: Value(german),
       article: article == null && nullToAbsent
           ? const Value.absent()
@@ -687,6 +717,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return VocabWord(
       id: serializer.fromJson<int>(json['id']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
       german: serializer.fromJson<String>(json['german']),
       article: serializer.fromJson<String?>(json['article']),
       partOfSpeech: serializer.fromJson<String>(json['partOfSpeech']),
@@ -720,6 +751,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'languageCode': serializer.toJson<String>(languageCode),
       'german': serializer.toJson<String>(german),
       'article': serializer.toJson<String?>(article),
       'partOfSpeech': serializer.toJson<String>(partOfSpeech),
@@ -747,6 +779,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
 
   VocabWord copyWith({
     int? id,
+    String? languageCode,
     String? german,
     Value<String?> article = const Value.absent(),
     String? partOfSpeech,
@@ -769,6 +802,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
     int? createdAt,
   }) => VocabWord(
     id: id ?? this.id,
+    languageCode: languageCode ?? this.languageCode,
     german: german ?? this.german,
     article: article.present ? article.value : this.article,
     partOfSpeech: partOfSpeech ?? this.partOfSpeech,
@@ -797,6 +831,9 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   VocabWord copyWithCompanion(VocabWordsCompanion data) {
     return VocabWord(
       id: data.id.present ? data.id.value : this.id,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
       german: data.german.present ? data.german.value : this.german,
       article: data.article.present ? data.article.value : this.article,
       partOfSpeech: data.partOfSpeech.present
@@ -848,6 +885,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   String toString() {
     return (StringBuffer('VocabWord(')
           ..write('id: $id, ')
+          ..write('languageCode: $languageCode, ')
           ..write('german: $german, ')
           ..write('article: $article, ')
           ..write('partOfSpeech: $partOfSpeech, ')
@@ -875,6 +913,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
   @override
   int get hashCode => Object.hashAll([
     id,
+    languageCode,
     german,
     article,
     partOfSpeech,
@@ -901,6 +940,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
       identical(this, other) ||
       (other is VocabWord &&
           other.id == this.id &&
+          other.languageCode == this.languageCode &&
           other.german == this.german &&
           other.article == this.article &&
           other.partOfSpeech == this.partOfSpeech &&
@@ -925,6 +965,7 @@ class VocabWord extends DataClass implements Insertable<VocabWord> {
 
 class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   final Value<int> id;
+  final Value<String> languageCode;
   final Value<String> german;
   final Value<String?> article;
   final Value<String> partOfSpeech;
@@ -947,6 +988,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   final Value<int> createdAt;
   const VocabWordsCompanion({
     this.id = const Value.absent(),
+    this.languageCode = const Value.absent(),
     this.german = const Value.absent(),
     this.article = const Value.absent(),
     this.partOfSpeech = const Value.absent(),
@@ -970,6 +1012,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   });
   VocabWordsCompanion.insert({
     this.id = const Value.absent(),
+    this.languageCode = const Value.absent(),
     required String german,
     this.article = const Value.absent(),
     this.partOfSpeech = const Value.absent(),
@@ -998,6 +1041,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
        exampleTranslation = Value(exampleTranslation);
   static Insertable<VocabWord> custom({
     Expression<int>? id,
+    Expression<String>? languageCode,
     Expression<String>? german,
     Expression<String>? article,
     Expression<String>? partOfSpeech,
@@ -1021,6 +1065,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (languageCode != null) 'language_code': languageCode,
       if (german != null) 'german': german,
       if (article != null) 'article': article,
       if (partOfSpeech != null) 'part_of_speech': partOfSpeech,
@@ -1048,6 +1093,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
 
   VocabWordsCompanion copyWith({
     Value<int>? id,
+    Value<String>? languageCode,
     Value<String>? german,
     Value<String?>? article,
     Value<String>? partOfSpeech,
@@ -1071,6 +1117,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   }) {
     return VocabWordsCompanion(
       id: id ?? this.id,
+      languageCode: languageCode ?? this.languageCode,
       german: german ?? this.german,
       article: article ?? this.article,
       partOfSpeech: partOfSpeech ?? this.partOfSpeech,
@@ -1101,6 +1148,9 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
     }
     if (german.present) {
       map['german'] = Variable<String>(german.value);
@@ -1173,6 +1223,7 @@ class VocabWordsCompanion extends UpdateCompanion<VocabWord> {
   String toString() {
     return (StringBuffer('VocabWordsCompanion(')
           ..write('id: $id, ')
+          ..write('languageCode: $languageCode, ')
           ..write('german: $german, ')
           ..write('article: $article, ')
           ..write('partOfSpeech: $partOfSpeech, ')
@@ -3023,6 +3074,790 @@ class NewsCacheEntriesCompanion extends UpdateCompanion<NewsCacheEntry> {
   }
 }
 
+class $AppPreferencesEntriesTable extends AppPreferencesEntries
+    with TableInfo<$AppPreferencesEntriesTable, AppPreferencesEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppPreferencesEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _appLanguageCodeMeta = const VerificationMeta(
+    'appLanguageCode',
+  );
+  @override
+  late final GeneratedColumn<String> appLanguageCode = GeneratedColumn<String>(
+    'app_language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('en'),
+  );
+  static const VerificationMeta _studyLanguageCodeMeta = const VerificationMeta(
+    'studyLanguageCode',
+  );
+  @override
+  late final GeneratedColumn<String> studyLanguageCode =
+      GeneratedColumn<String>(
+        'study_language_code',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('de'),
+      );
+  static const VerificationMeta _aiProviderCodeMeta = const VerificationMeta(
+    'aiProviderCode',
+  );
+  @override
+  late final GeneratedColumn<String> aiProviderCode = GeneratedColumn<String>(
+    'ai_provider_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('auto'),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now().millisecondsSinceEpoch,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    appLanguageCode,
+    studyLanguageCode,
+    aiProviderCode,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_preferences_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppPreferencesEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('app_language_code')) {
+      context.handle(
+        _appLanguageCodeMeta,
+        appLanguageCode.isAcceptableOrUnknown(
+          data['app_language_code']!,
+          _appLanguageCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('study_language_code')) {
+      context.handle(
+        _studyLanguageCodeMeta,
+        studyLanguageCode.isAcceptableOrUnknown(
+          data['study_language_code']!,
+          _studyLanguageCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ai_provider_code')) {
+      context.handle(
+        _aiProviderCodeMeta,
+        aiProviderCode.isAcceptableOrUnknown(
+          data['ai_provider_code']!,
+          _aiProviderCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppPreferencesEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppPreferencesEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      appLanguageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}app_language_code'],
+      )!,
+      studyLanguageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}study_language_code'],
+      )!,
+      aiProviderCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ai_provider_code'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AppPreferencesEntriesTable createAlias(String alias) {
+    return $AppPreferencesEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class AppPreferencesEntry extends DataClass
+    implements Insertable<AppPreferencesEntry> {
+  final int id;
+  final String appLanguageCode;
+  final String studyLanguageCode;
+  final String aiProviderCode;
+  final int updatedAt;
+  const AppPreferencesEntry({
+    required this.id,
+    required this.appLanguageCode,
+    required this.studyLanguageCode,
+    required this.aiProviderCode,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['app_language_code'] = Variable<String>(appLanguageCode);
+    map['study_language_code'] = Variable<String>(studyLanguageCode);
+    map['ai_provider_code'] = Variable<String>(aiProviderCode);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  AppPreferencesEntriesCompanion toCompanion(bool nullToAbsent) {
+    return AppPreferencesEntriesCompanion(
+      id: Value(id),
+      appLanguageCode: Value(appLanguageCode),
+      studyLanguageCode: Value(studyLanguageCode),
+      aiProviderCode: Value(aiProviderCode),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AppPreferencesEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppPreferencesEntry(
+      id: serializer.fromJson<int>(json['id']),
+      appLanguageCode: serializer.fromJson<String>(json['appLanguageCode']),
+      studyLanguageCode: serializer.fromJson<String>(json['studyLanguageCode']),
+      aiProviderCode: serializer.fromJson<String>(json['aiProviderCode']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'appLanguageCode': serializer.toJson<String>(appLanguageCode),
+      'studyLanguageCode': serializer.toJson<String>(studyLanguageCode),
+      'aiProviderCode': serializer.toJson<String>(aiProviderCode),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  AppPreferencesEntry copyWith({
+    int? id,
+    String? appLanguageCode,
+    String? studyLanguageCode,
+    String? aiProviderCode,
+    int? updatedAt,
+  }) => AppPreferencesEntry(
+    id: id ?? this.id,
+    appLanguageCode: appLanguageCode ?? this.appLanguageCode,
+    studyLanguageCode: studyLanguageCode ?? this.studyLanguageCode,
+    aiProviderCode: aiProviderCode ?? this.aiProviderCode,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  AppPreferencesEntry copyWithCompanion(AppPreferencesEntriesCompanion data) {
+    return AppPreferencesEntry(
+      id: data.id.present ? data.id.value : this.id,
+      appLanguageCode: data.appLanguageCode.present
+          ? data.appLanguageCode.value
+          : this.appLanguageCode,
+      studyLanguageCode: data.studyLanguageCode.present
+          ? data.studyLanguageCode.value
+          : this.studyLanguageCode,
+      aiProviderCode: data.aiProviderCode.present
+          ? data.aiProviderCode.value
+          : this.aiProviderCode,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppPreferencesEntry(')
+          ..write('id: $id, ')
+          ..write('appLanguageCode: $appLanguageCode, ')
+          ..write('studyLanguageCode: $studyLanguageCode, ')
+          ..write('aiProviderCode: $aiProviderCode, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    appLanguageCode,
+    studyLanguageCode,
+    aiProviderCode,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppPreferencesEntry &&
+          other.id == this.id &&
+          other.appLanguageCode == this.appLanguageCode &&
+          other.studyLanguageCode == this.studyLanguageCode &&
+          other.aiProviderCode == this.aiProviderCode &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AppPreferencesEntriesCompanion
+    extends UpdateCompanion<AppPreferencesEntry> {
+  final Value<int> id;
+  final Value<String> appLanguageCode;
+  final Value<String> studyLanguageCode;
+  final Value<String> aiProviderCode;
+  final Value<int> updatedAt;
+  const AppPreferencesEntriesCompanion({
+    this.id = const Value.absent(),
+    this.appLanguageCode = const Value.absent(),
+    this.studyLanguageCode = const Value.absent(),
+    this.aiProviderCode = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  AppPreferencesEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    this.appLanguageCode = const Value.absent(),
+    this.studyLanguageCode = const Value.absent(),
+    this.aiProviderCode = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  static Insertable<AppPreferencesEntry> custom({
+    Expression<int>? id,
+    Expression<String>? appLanguageCode,
+    Expression<String>? studyLanguageCode,
+    Expression<String>? aiProviderCode,
+    Expression<int>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (appLanguageCode != null) 'app_language_code': appLanguageCode,
+      if (studyLanguageCode != null) 'study_language_code': studyLanguageCode,
+      if (aiProviderCode != null) 'ai_provider_code': aiProviderCode,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  AppPreferencesEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? appLanguageCode,
+    Value<String>? studyLanguageCode,
+    Value<String>? aiProviderCode,
+    Value<int>? updatedAt,
+  }) {
+    return AppPreferencesEntriesCompanion(
+      id: id ?? this.id,
+      appLanguageCode: appLanguageCode ?? this.appLanguageCode,
+      studyLanguageCode: studyLanguageCode ?? this.studyLanguageCode,
+      aiProviderCode: aiProviderCode ?? this.aiProviderCode,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (appLanguageCode.present) {
+      map['app_language_code'] = Variable<String>(appLanguageCode.value);
+    }
+    if (studyLanguageCode.present) {
+      map['study_language_code'] = Variable<String>(studyLanguageCode.value);
+    }
+    if (aiProviderCode.present) {
+      map['ai_provider_code'] = Variable<String>(aiProviderCode.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppPreferencesEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('appLanguageCode: $appLanguageCode, ')
+          ..write('studyLanguageCode: $studyLanguageCode, ')
+          ..write('aiProviderCode: $aiProviderCode, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PracticeExamEntriesTable extends PracticeExamEntries
+    with TableInfo<$PracticeExamEntriesTable, PracticeExamEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PracticeExamEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
+  @override
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('de'),
+  );
+  static const VerificationMeta _sourceKeyMeta = const VerificationMeta(
+    'sourceKey',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKey = GeneratedColumn<String>(
+    'source_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now().millisecondsSinceEpoch,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    languageCode,
+    sourceKey,
+    payloadJson,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'practice_exam_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PracticeExamEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_key')) {
+      context.handle(
+        _sourceKeyMeta,
+        sourceKey.isAcceptableOrUnknown(data['source_key']!, _sourceKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKeyMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {languageCode, sourceKey},
+  ];
+  @override
+  PracticeExamEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PracticeExamEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
+      sourceKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_key'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      ),
+    );
+  }
+
+  @override
+  $PracticeExamEntriesTable createAlias(String alias) {
+    return $PracticeExamEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class PracticeExamEntry extends DataClass
+    implements Insertable<PracticeExamEntry> {
+  final int id;
+  final String languageCode;
+  final String sourceKey;
+  final String payloadJson;
+  final int createdAt;
+  final int? updatedAt;
+  const PracticeExamEntry({
+    required this.id,
+    required this.languageCode,
+    required this.sourceKey,
+    required this.payloadJson,
+    required this.createdAt,
+    this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['language_code'] = Variable<String>(languageCode);
+    map['source_key'] = Variable<String>(sourceKey);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<int>(updatedAt);
+    }
+    return map;
+  }
+
+  PracticeExamEntriesCompanion toCompanion(bool nullToAbsent) {
+    return PracticeExamEntriesCompanion(
+      id: Value(id),
+      languageCode: Value(languageCode),
+      sourceKey: Value(sourceKey),
+      payloadJson: Value(payloadJson),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory PracticeExamEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PracticeExamEntry(
+      id: serializer.fromJson<int>(json['id']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
+      sourceKey: serializer.fromJson<String>(json['sourceKey']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'languageCode': serializer.toJson<String>(languageCode),
+      'sourceKey': serializer.toJson<String>(sourceKey),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int?>(updatedAt),
+    };
+  }
+
+  PracticeExamEntry copyWith({
+    int? id,
+    String? languageCode,
+    String? sourceKey,
+    String? payloadJson,
+    int? createdAt,
+    Value<int?> updatedAt = const Value.absent(),
+  }) => PracticeExamEntry(
+    id: id ?? this.id,
+    languageCode: languageCode ?? this.languageCode,
+    sourceKey: sourceKey ?? this.sourceKey,
+    payloadJson: payloadJson ?? this.payloadJson,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
+  PracticeExamEntry copyWithCompanion(PracticeExamEntriesCompanion data) {
+    return PracticeExamEntry(
+      id: data.id.present ? data.id.value : this.id,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
+      sourceKey: data.sourceKey.present ? data.sourceKey.value : this.sourceKey,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PracticeExamEntry(')
+          ..write('id: $id, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('sourceKey: $sourceKey, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    languageCode,
+    sourceKey,
+    payloadJson,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PracticeExamEntry &&
+          other.id == this.id &&
+          other.languageCode == this.languageCode &&
+          other.sourceKey == this.sourceKey &&
+          other.payloadJson == this.payloadJson &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PracticeExamEntriesCompanion extends UpdateCompanion<PracticeExamEntry> {
+  final Value<int> id;
+  final Value<String> languageCode;
+  final Value<String> sourceKey;
+  final Value<String> payloadJson;
+  final Value<int> createdAt;
+  final Value<int?> updatedAt;
+  const PracticeExamEntriesCompanion({
+    this.id = const Value.absent(),
+    this.languageCode = const Value.absent(),
+    this.sourceKey = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PracticeExamEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    this.languageCode = const Value.absent(),
+    required String sourceKey,
+    required String payloadJson,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : sourceKey = Value(sourceKey),
+       payloadJson = Value(payloadJson);
+  static Insertable<PracticeExamEntry> custom({
+    Expression<int>? id,
+    Expression<String>? languageCode,
+    Expression<String>? sourceKey,
+    Expression<String>? payloadJson,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (languageCode != null) 'language_code': languageCode,
+      if (sourceKey != null) 'source_key': sourceKey,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PracticeExamEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? languageCode,
+    Value<String>? sourceKey,
+    Value<String>? payloadJson,
+    Value<int>? createdAt,
+    Value<int?>? updatedAt,
+  }) {
+    return PracticeExamEntriesCompanion(
+      id: id ?? this.id,
+      languageCode: languageCode ?? this.languageCode,
+      sourceKey: sourceKey ?? this.sourceKey,
+      payloadJson: payloadJson ?? this.payloadJson,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
+    if (sourceKey.present) {
+      map['source_key'] = Variable<String>(sourceKey.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PracticeExamEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('sourceKey: $sourceKey, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3035,6 +3870,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $NewsCacheEntriesTable newsCacheEntries = $NewsCacheEntriesTable(
     this,
   );
+  late final $AppPreferencesEntriesTable appPreferencesEntries =
+      $AppPreferencesEntriesTable(this);
+  late final $PracticeExamEntriesTable practiceExamEntries =
+      $PracticeExamEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3045,12 +3884,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readingDocuments,
     readingNotes,
     newsCacheEntries,
+    appPreferencesEntries,
+    practiceExamEntries,
   ];
 }
 
 typedef $$VocabWordsTableCreateCompanionBuilder =
     VocabWordsCompanion Function({
       Value<int> id,
+      Value<String> languageCode,
       required String german,
       Value<String?> article,
       Value<String> partOfSpeech,
@@ -3075,6 +3917,7 @@ typedef $$VocabWordsTableCreateCompanionBuilder =
 typedef $$VocabWordsTableUpdateCompanionBuilder =
     VocabWordsCompanion Function({
       Value<int> id,
+      Value<String> languageCode,
       Value<String> german,
       Value<String?> article,
       Value<String> partOfSpeech,
@@ -3108,6 +3951,11 @@ class $$VocabWordsTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3226,6 +4074,11 @@ class $$VocabWordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get german => $composableBuilder(
     column: $table.german,
     builder: (column) => ColumnOrderings(column),
@@ -3338,6 +4191,11 @@ class $$VocabWordsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get german =>
       $composableBuilder(column: $table.german, builder: (column) => column);
@@ -3456,6 +4314,7 @@ class $$VocabWordsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
                 Value<String> german = const Value.absent(),
                 Value<String?> article = const Value.absent(),
                 Value<String> partOfSpeech = const Value.absent(),
@@ -3479,6 +4338,7 @@ class $$VocabWordsTableTableManager
                 Value<int> createdAt = const Value.absent(),
               }) => VocabWordsCompanion(
                 id: id,
+                languageCode: languageCode,
                 german: german,
                 article: article,
                 partOfSpeech: partOfSpeech,
@@ -3503,6 +4363,7 @@ class $$VocabWordsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
                 required String german,
                 Value<String?> article = const Value.absent(),
                 Value<String> partOfSpeech = const Value.absent(),
@@ -3526,6 +4387,7 @@ class $$VocabWordsTableTableManager
                 Value<int> createdAt = const Value.absent(),
               }) => VocabWordsCompanion.insert(
                 id: id,
+                languageCode: languageCode,
                 german: german,
                 article: article,
                 partOfSpeech: partOfSpeech,
@@ -4743,6 +5605,458 @@ typedef $$NewsCacheEntriesTableProcessedTableManager =
       NewsCacheEntry,
       PrefetchHooks Function()
     >;
+typedef $$AppPreferencesEntriesTableCreateCompanionBuilder =
+    AppPreferencesEntriesCompanion Function({
+      Value<int> id,
+      Value<String> appLanguageCode,
+      Value<String> studyLanguageCode,
+      Value<String> aiProviderCode,
+      Value<int> updatedAt,
+    });
+typedef $$AppPreferencesEntriesTableUpdateCompanionBuilder =
+    AppPreferencesEntriesCompanion Function({
+      Value<int> id,
+      Value<String> appLanguageCode,
+      Value<String> studyLanguageCode,
+      Value<String> aiProviderCode,
+      Value<int> updatedAt,
+    });
+
+class $$AppPreferencesEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $AppPreferencesEntriesTable> {
+  $$AppPreferencesEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appLanguageCode => $composableBuilder(
+    column: $table.appLanguageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get studyLanguageCode => $composableBuilder(
+    column: $table.studyLanguageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get aiProviderCode => $composableBuilder(
+    column: $table.aiProviderCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppPreferencesEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppPreferencesEntriesTable> {
+  $$AppPreferencesEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get appLanguageCode => $composableBuilder(
+    column: $table.appLanguageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get studyLanguageCode => $composableBuilder(
+    column: $table.studyLanguageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aiProviderCode => $composableBuilder(
+    column: $table.aiProviderCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppPreferencesEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppPreferencesEntriesTable> {
+  $$AppPreferencesEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get appLanguageCode => $composableBuilder(
+    column: $table.appLanguageCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get studyLanguageCode => $composableBuilder(
+    column: $table.studyLanguageCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get aiProviderCode => $composableBuilder(
+    column: $table.aiProviderCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AppPreferencesEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppPreferencesEntriesTable,
+          AppPreferencesEntry,
+          $$AppPreferencesEntriesTableFilterComposer,
+          $$AppPreferencesEntriesTableOrderingComposer,
+          $$AppPreferencesEntriesTableAnnotationComposer,
+          $$AppPreferencesEntriesTableCreateCompanionBuilder,
+          $$AppPreferencesEntriesTableUpdateCompanionBuilder,
+          (
+            AppPreferencesEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $AppPreferencesEntriesTable,
+              AppPreferencesEntry
+            >,
+          ),
+          AppPreferencesEntry,
+          PrefetchHooks Function()
+        > {
+  $$AppPreferencesEntriesTableTableManager(
+    _$AppDatabase db,
+    $AppPreferencesEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppPreferencesEntriesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$AppPreferencesEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AppPreferencesEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> appLanguageCode = const Value.absent(),
+                Value<String> studyLanguageCode = const Value.absent(),
+                Value<String> aiProviderCode = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+              }) => AppPreferencesEntriesCompanion(
+                id: id,
+                appLanguageCode: appLanguageCode,
+                studyLanguageCode: studyLanguageCode,
+                aiProviderCode: aiProviderCode,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> appLanguageCode = const Value.absent(),
+                Value<String> studyLanguageCode = const Value.absent(),
+                Value<String> aiProviderCode = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+              }) => AppPreferencesEntriesCompanion.insert(
+                id: id,
+                appLanguageCode: appLanguageCode,
+                studyLanguageCode: studyLanguageCode,
+                aiProviderCode: aiProviderCode,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppPreferencesEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppPreferencesEntriesTable,
+      AppPreferencesEntry,
+      $$AppPreferencesEntriesTableFilterComposer,
+      $$AppPreferencesEntriesTableOrderingComposer,
+      $$AppPreferencesEntriesTableAnnotationComposer,
+      $$AppPreferencesEntriesTableCreateCompanionBuilder,
+      $$AppPreferencesEntriesTableUpdateCompanionBuilder,
+      (
+        AppPreferencesEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $AppPreferencesEntriesTable,
+          AppPreferencesEntry
+        >,
+      ),
+      AppPreferencesEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$PracticeExamEntriesTableCreateCompanionBuilder =
+    PracticeExamEntriesCompanion Function({
+      Value<int> id,
+      Value<String> languageCode,
+      required String sourceKey,
+      required String payloadJson,
+      Value<int> createdAt,
+      Value<int?> updatedAt,
+    });
+typedef $$PracticeExamEntriesTableUpdateCompanionBuilder =
+    PracticeExamEntriesCompanion Function({
+      Value<int> id,
+      Value<String> languageCode,
+      Value<String> sourceKey,
+      Value<String> payloadJson,
+      Value<int> createdAt,
+      Value<int?> updatedAt,
+    });
+
+class $$PracticeExamEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $PracticeExamEntriesTable> {
+  $$PracticeExamEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PracticeExamEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PracticeExamEntriesTable> {
+  $$PracticeExamEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PracticeExamEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PracticeExamEntriesTable> {
+  $$PracticeExamEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceKey =>
+      $composableBuilder(column: $table.sourceKey, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PracticeExamEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PracticeExamEntriesTable,
+          PracticeExamEntry,
+          $$PracticeExamEntriesTableFilterComposer,
+          $$PracticeExamEntriesTableOrderingComposer,
+          $$PracticeExamEntriesTableAnnotationComposer,
+          $$PracticeExamEntriesTableCreateCompanionBuilder,
+          $$PracticeExamEntriesTableUpdateCompanionBuilder,
+          (
+            PracticeExamEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $PracticeExamEntriesTable,
+              PracticeExamEntry
+            >,
+          ),
+          PracticeExamEntry,
+          PrefetchHooks Function()
+        > {
+  $$PracticeExamEntriesTableTableManager(
+    _$AppDatabase db,
+    $PracticeExamEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PracticeExamEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PracticeExamEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PracticeExamEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
+                Value<String> sourceKey = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> updatedAt = const Value.absent(),
+              }) => PracticeExamEntriesCompanion(
+                id: id,
+                languageCode: languageCode,
+                sourceKey: sourceKey,
+                payloadJson: payloadJson,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
+                required String sourceKey,
+                required String payloadJson,
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> updatedAt = const Value.absent(),
+              }) => PracticeExamEntriesCompanion.insert(
+                id: id,
+                languageCode: languageCode,
+                sourceKey: sourceKey,
+                payloadJson: payloadJson,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PracticeExamEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PracticeExamEntriesTable,
+      PracticeExamEntry,
+      $$PracticeExamEntriesTableFilterComposer,
+      $$PracticeExamEntriesTableOrderingComposer,
+      $$PracticeExamEntriesTableAnnotationComposer,
+      $$PracticeExamEntriesTableCreateCompanionBuilder,
+      $$PracticeExamEntriesTableUpdateCompanionBuilder,
+      (
+        PracticeExamEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $PracticeExamEntriesTable,
+          PracticeExamEntry
+        >,
+      ),
+      PracticeExamEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4757,4 +6071,8 @@ class $AppDatabaseManager {
       $$ReadingNotesTableTableManager(_db, _db.readingNotes);
   $$NewsCacheEntriesTableTableManager get newsCacheEntries =>
       $$NewsCacheEntriesTableTableManager(_db, _db.newsCacheEntries);
+  $$AppPreferencesEntriesTableTableManager get appPreferencesEntries =>
+      $$AppPreferencesEntriesTableTableManager(_db, _db.appPreferencesEntries);
+  $$PracticeExamEntriesTableTableManager get practiceExamEntries =>
+      $$PracticeExamEntriesTableTableManager(_db, _db.practiceExamEntries);
 }

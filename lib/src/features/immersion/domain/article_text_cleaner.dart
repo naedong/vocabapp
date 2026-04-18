@@ -3,11 +3,11 @@ String sanitizeArticleTitle(String rawTitle) {
   return cleaned.isEmpty ? '제목 없음' : cleaned;
 }
 
-String sanitizeArticlePreview(
-  String? rawPreview, {
-  String? fallbackBody,
-}) {
-  final cleanedPreview = _cleanPlainText(rawPreview ?? '', keepParagraphs: false);
+String sanitizeArticlePreview(String? rawPreview, {String? fallbackBody}) {
+  final cleanedPreview = _cleanPlainText(
+    rawPreview ?? '',
+    keepParagraphs: false,
+  );
   if (cleanedPreview.isNotEmpty) {
     return cleanedPreview;
   }
@@ -17,11 +17,14 @@ String sanitizeArticlePreview(
     return '요약 정보가 없는 기사입니다.';
   }
 
-  final sentences = RegExp(
-    r'[^.!?]+[.!?]?',
-  ).allMatches(cleanedBody).map((match) {
-    return (match.group(0) ?? '').trim();
-  }).where((sentence) => sentence.isNotEmpty).take(2).toList();
+  final sentences = RegExp(r'[^.!?]+[.!?]?')
+      .allMatches(cleanedBody)
+      .map((match) {
+        return (match.group(0) ?? '').trim();
+      })
+      .where((sentence) => sentence.isNotEmpty)
+      .take(2)
+      .toList();
 
   if (sentences.isNotEmpty) {
     return sentences.join(' ');
@@ -52,9 +55,10 @@ bool looksLikeTruncatedArticle(String? rawBody) {
     return false;
   }
 
-  return RegExp(r'\[\+\d+\s+chars\]$', caseSensitive: false).hasMatch(
-    rawBody.trim(),
-  );
+  return RegExp(
+    r'\[\+\d+\s+chars\]$',
+    caseSensitive: false,
+  ).hasMatch(rawBody.trim());
 }
 
 String buildArticleReadingScript({
@@ -74,31 +78,19 @@ String buildArticleReadingScript({
 String stripHtmlToText(String html, {bool keepParagraphs = true}) {
   var text = html
       .replaceAll(
-        RegExp(
-          r'<script[^>]*>[\s\S]*?</script>',
-          caseSensitive: false,
-        ),
+        RegExp(r'<script[^>]*>[\s\S]*?</script>', caseSensitive: false),
         ' ',
       )
       .replaceAll(
-        RegExp(
-          r'<style[^>]*>[\s\S]*?</style>',
-          caseSensitive: false,
-        ),
+        RegExp(r'<style[^>]*>[\s\S]*?</style>', caseSensitive: false),
         ' ',
       )
       .replaceAll(
-        RegExp(
-          r'<noscript[^>]*>[\s\S]*?</noscript>',
-          caseSensitive: false,
-        ),
+        RegExp(r'<noscript[^>]*>[\s\S]*?</noscript>', caseSensitive: false),
         ' ',
       )
       .replaceAll(
-        RegExp(
-          r'<svg[^>]*>[\s\S]*?</svg>',
-          caseSensitive: false,
-        ),
+        RegExp(r'<svg[^>]*>[\s\S]*?</svg>', caseSensitive: false),
         ' ',
       )
       .replaceAll(
@@ -141,10 +133,7 @@ String _cleanPlainText(String raw, {required bool keepParagraphs}) {
   text = text
       .replaceAll(RegExp(r'\s*\[\+\d+\s+chars\]$', caseSensitive: false), '')
       .replaceAll(RegExp(r'\bread more\b.*$', caseSensitive: false), '')
-      .replaceAll(
-        RegExp(r'\bcontinue reading\b.*$', caseSensitive: false),
-        '',
-      )
+      .replaceAll(RegExp(r'\bcontinue reading\b.*$', caseSensitive: false), '')
       .replaceAll(RegExp(r'\u00a0'), ' ');
 
   if (keepParagraphs) {

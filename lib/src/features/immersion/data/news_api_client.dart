@@ -42,19 +42,20 @@ class NewsApiClient {
       },
     );
     late final Future<List<NewsArticle>> future;
-    future = _requestArticles(
-      path: '/top-headlines',
-      queryParameters: {
-        'country': 'de',
-        'category': category,
-        'pageSize': '$pageSize',
-      },
-    ).catchError((Object error, StackTrace stackTrace) {
-      if (identical(_headlineCache[cacheKey], future)) {
-        _headlineCache.remove(cacheKey);
-      }
-      Error.throwWithStackTrace(error, stackTrace);
-    });
+    future =
+        _requestArticles(
+          path: '/top-headlines',
+          queryParameters: {
+            'country': 'de',
+            'category': category,
+            'pageSize': '$pageSize',
+          },
+        ).catchError((Object error, StackTrace stackTrace) {
+          if (identical(_headlineCache[cacheKey], future)) {
+            _headlineCache.remove(cacheKey);
+          }
+          Error.throwWithStackTrace(error, stackTrace);
+        });
 
     _headlineCache[cacheKey] = future;
     return future;
@@ -99,9 +100,10 @@ class NewsApiClient {
       details: <String, Object?>{'url': uri.toString()},
     );
 
-    final response = await _httpClient.get(uri, headers: {
-      'X-Api-Key': NewsApiConfig.apiKey,
-    });
+    final response = await _httpClient.get(
+      uri,
+      headers: {'X-Api-Key': NewsApiConfig.apiKey},
+    );
 
     if (response.statusCode != 200) {
       AppLogger.warn(
