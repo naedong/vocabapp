@@ -19,6 +19,7 @@
 - `Home`: 오늘의 추천, 복습 대기, 빠른 학습 액션
 - `Library`: 단어 카드 검색, 덱별 필터링, 즐겨찾기, 음성 재생
 - `Review`: 간격 반복 복습과 기억 여부 기록
+
 - `Immersion`: 독일 뉴스 검색, 기사 리더, DW/Goethe/Tagesschau 같은 외부 자료
 - `Insights`: 학습량, 리뷰 기록, 카드 상태 요약
 
@@ -26,16 +27,14 @@
 
 | 홈/학습 흐름 | 컬렉션/복습 |
 | --- | --- |
-| ![Screenshot_20260424_013530](docs/screenshots/Screenshot_20260424_013530.png) | ![Screenshot_20260424_013510](docs/screenshots/Screenshot_20260424_013510.png) |
-| ![Screenshot_20260424_013543](docs/screenshots/Screenshot_20260424_013543.png) | ![Screenshot_20260424_013558](docs/screenshots/Screenshot_20260424_013558.png) |
-| ![Screenshot_20260424_013608](docs/screenshots/Screenshot_20260424_013608.png) | ![Screenshot_20260424_013625](docs/screenshots/Screenshot_20260424_013625.png) |
+| <img width="720" height="1280" alt="Screenshot_20260429_012632" src="https://github.com/user-attachments/assets/7ab549da-e9f3-4b73-9a39-5729f537b2ba" /> | <img width="720" height="1280" alt="Screenshot_20260429_012729" src="https://github.com/user-attachments/assets/44a657a8-e36f-449b-9522-b7de82d08d1d" /> |
+|<img width="720" height="1280" alt="Screenshot_20260429_012722" src="https://github.com/user-attachments/assets/e6c31e9a-59d1-48a3-a0ea-8266ec2b724a" />
+
 
 | 발음/시험/설정 | 실전 독일어/인사이트 |
 | --- | --- |
-| ![Screenshot_20260424_013633](docs/screenshots/Screenshot_20260424_013633.png) | ![Screenshot_20260424_013654](docs/screenshots/Screenshot_20260424_013654.png) |
-| ![Screenshot_20260424_013809](docs/screenshots/Screenshot_20260424_013809.png) | ![Screenshot_20260424_013815](docs/screenshots/Screenshot_20260424_013815.png) |
-| ![Screenshot_20260424_013820](docs/screenshots/Screenshot_20260424_013820.png) | ![Screenshot_20260424_013943](docs/screenshots/Screenshot_20260424_013943.png) |
-| ![Screenshot_20260424_013955](docs/screenshots/Screenshot_20260424_013955.png) |  |
+|  <img width="720" height="1280" alt="Screenshot_20260429_012742" src="https://github.com/user-attachments/assets/fe07fcbf-20be-4a17-b05f-3f21cc82b597" /> | <img width="720" height="1280" alt="Screenshot_20260429_012750" src="https://github.com/user-attachments/assets/78fad1ef-8552-4eec-b075-a13cd407d0f6" />  |
+| <img width="720" height="1280" alt="Screenshot_20260429_012858" src="https://github.com/user-attachments/assets/01bc5d1a-3568-449d-a349-092677c96de6" /> | <img width="720" height="1280" alt="Screenshot_20260429_012816" src="https://github.com/user-attachments/assets/233a9ffe-469a-47c7-83f5-885741136a60" /> | <img width="720" height="1280" alt="Screenshot_20260429_012816" src="https://github.com/user-attachments/assets/233a9ffe-469a-47c7-83f5-885741136a60" /> | <img width="720" height="1280" alt="Screenshot_20260429_012651" src="https://github.com/user-attachments/assets/c8a4880d-b051-43b5-8704-b0e4557708d2" /> | 
 
 ## 기술 스택
 
