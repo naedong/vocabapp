@@ -23,7 +23,6 @@
 - `Immersion`: 독일 뉴스 검색, 기사 리더, DW/Goethe/Tagesschau 같은 외부 자료
 - `Insights`: 학습량, 리뷰 기록, 카드 상태 요약
 
-스크린샷 파일은 `docs/screenshots` 폴더 기준으로 연결했습니다.
 
 | 홈/학습 흐름 | 컬렉션/복습 |
 | --- | --- |
@@ -54,7 +53,6 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-웹에서 Drift WASM을 더 안정적으로 테스트하려면 다음 헤더를 함께 사용할 수 있습니다.
 
 ```bash
 flutter run -d chrome --web-header=Cross-Origin-Opener-Policy=same-origin --web-header=Cross-Origin-Embedder-Policy=require-corp
@@ -71,7 +69,6 @@ flutter run \
   --dart-define=NEWS_API_KEY=your-key
 ```
 
-키가 없어도 로컬 단어장, 복습, 샘플 시험 세트, 기본 화면은 사용할 수 있습니다.
 
 ## 주요 폴더
 
